@@ -10,6 +10,7 @@
 #include "app/LotScreen.h"
 #include "app/Font.h"
 #include "app/Theme.h"
+#include "app/LangText.h"
 #include "app/ui/UIGraphics.h"
 #include "app/ui/GameText.h"
 #include "app/ui/UIUCP.h"
@@ -132,18 +133,18 @@ void UIBuyMode::DrawHoldToolbar(LotScreen* L, Canvas& c, const Rect& r, bool can
     c.FillRoundRect(pr, 6, canPlace ? RGBA(30, 140, 50) : RGBA(50, 60, 80));
     c.StrokeRoundRect(pr.X, pr.Y, pr.W, pr.H, 6, canPlace ? RGBA(150, 255, 150) : RGBA(100, 110, 140));
     bool bought = H.Holding && H.Holding->IsBought();
-    DrawTextCentered(c, FontId::Bold, pr, bought ? "Place" : "Buy", canPlace ? RGBA(255, 255, 255) : theme::TextDim);
+    DrawTextCentered(c, FontId::Bold, pr, bought ? LangText("Place") : LangText("Buy"), canPlace ? RGBA(255, 255, 255) : theme::TextDim);
     L->Hit(pr, "hold_place");
     // sell back / cancel (C# SellBack: Delete key; the TS1 hand tool's sell button)
     Rect sr(x + 132, y, 60, 30);
     c.FillRoundRect(sr, 6, bought ? RGBA(150, 40, 30) : RGBA(70, 50, 90));
     c.StrokeRoundRect(sr.X, sr.Y, sr.W, sr.H, 6, RGBA(255, 160, 140));
-    DrawTextCentered(c, FontId::Bold, sr, bought ? "Sell" : "Cancel", RGBA(255, 255, 255));
+    DrawTextCentered(c, FontId::Bold, sr, bought ? LangText("Sell") : GameText::Get().UI(142, 1, "Cancel"), RGBA(255, 255, 255));
     L->Hit(sr, "hold_sell");
     Rect cr(x + 196, y, r.Right() - x - 200, 30);
     if (bought) {
         c.FillRoundRect(cr, 6, RGBA(40, 50, 110));
-        DrawTextCentered(c, FontId::Small, cr, "Put back", theme::TextBright);
+        DrawTextCentered(c, FontId::Small, cr, LangText("Put back"), theme::TextBright);
         L->Hit(cr, "hold_cancel");
     }
     // status line: name / price / error
@@ -155,13 +156,13 @@ void UIBuyMode::DrawHoldToolbar(LotScreen* L, Canvas& c, const Rect& r, bool can
             col = RGBA(255, 110, 90);
         } else if (bought) {
             auto obj = L->S->VM()->GetObjectById(H.Holding->MoveTarget);
-            status = "Sells for " + UIUCP::Money(H.SaleValue(obj));
+            status = LangText("Sells for ") + UIUCP::Money(H.SaleValue(obj));
         } else {
-            status = UIUCP::Money(H.Holding->Price) + "  -  tap again or A to buy";
+            status = UIUCP::Money(H.Holding->Price) + LangText("  -  tap again or A to buy");
         }
     }
     DrawText(c, FontId::Small, r.X + 6, r.Y + 37, Ellipsize(FontId::Small, status, r.W - 12), col);
-    DrawText(c, FontId::Small, r.X + 6, r.Y + 51, "Y / buttons: rotate   B: cancel   X: sell", RGBA(120, 130, 200));
+    DrawText(c, FontId::Small, r.X + 6, r.Y + 51, LangText("Y / buttons: rotate   B: cancel   X: sell"), RGBA(120, 130, 200));
 }
 
 void UIBuyMode::DrawQueryPanel(LotScreen* L, Canvas& top, const UICatalogElement* e, int price, bool sell) {
@@ -181,7 +182,7 @@ void UIBuyMode::DrawQueryPanel(LotScreen* L, Canvas& top, const UICatalogElement
         top.BlitScaled(d.Icon.Px.data(), d.Icon.Width, d.Icon.Height, Rect(p.X + 5 + (40 - w) / 2, p.Y + 5 + (40 - h) / 2, w, h), true);
         tx = p.X + 50;
     }
-    std::string head = d.Name + "   " + (sell ? "Sells for " : "") + UIUCP::Money(price);
+    std::string head = d.Name + "   " + (sell ? LangText("Sells for ") : "") + UIUCP::Money(price);
     DrawText(top, FontId::Bold, tx, p.Y + 3, Ellipsize(FontId::Bold, head, p.Right() - tx - 6), RGBA(255, 230, 120));
     int lh = LineHeight(FontId::Small);
     auto lines = WrapText(FontId::Small, d.Description, p.Right() - tx - 6);
@@ -213,10 +214,10 @@ void UIBuyMode::Draw(Canvas& c, const Rect& a) {
             c.FillRect(a.X, a.Y + 166, a.W, a.H - 166, RGBA(6, 10, 60));
             L->DrawArtButton(c, Rect(a.X + 4, a.Y + 170, 40, 34), "cpanel/Buttons/toolBtnHand.bmp", 4, true, false, "Hand", "hand");
             DrawText(c, FontId::Bold, a.X + 50, a.Y + 172, gt.UI(139, 11, "Hand Tool"), RGBA(255, 230, 120));
-            DrawText(c, FontId::Small, a.X + 50, a.Y + 188, "Tap an object to move or sell it.", theme::Text);
+            DrawText(c, FontId::Small, a.X + 50, a.Y + 188, LangText("Tap an object to move or sell it."), theme::Text);
             Rect back(a.Right() - 80, a.Y + 208, 74, 26);
             c.FillRoundRect(back, 6, theme::ButtonBg);
-            DrawTextCentered(c, FontId::Bold, back, "Catalog", theme::TextBright);
+            DrawTextCentered(c, FontId::Bold, back, LangText("Catalog"), theme::TextBright);
             L->Hit(back, "catalog");
         }
         return;
@@ -225,8 +226,8 @@ void UIBuyMode::Draw(Canvas& c, const Rect& a) {
     Rect tog1(a.X + 3, a.Y + 2, 28, 15), tog2(a.X + 3, a.Y + 18, 28, 15);
     c.FillRoundRect(tog1, 3, !RoomCategories ? RGBA(30, 60, 160) : RGBA(14, 22, 90));
     c.FillRoundRect(tog2, 3, RoomCategories ? RGBA(30, 60, 160) : RGBA(14, 22, 90));
-    DrawTextCentered(c, FontId::Small, tog1, "Fn", !RoomCategories ? RGBA(0, 255, 255) : theme::Text);
-    DrawTextCentered(c, FontId::Small, tog2, "Rm", RoomCategories ? RGBA(0, 255, 255) : theme::Text);
+    DrawTextCentered(c, FontId::Small, tog1, LangText("Fn"), !RoomCategories ? RGBA(0, 255, 255) : theme::Text);
+    DrawTextCentered(c, FontId::Small, tog2, LangText("Rm"), RoomCategories ? RGBA(0, 255, 255) : theme::Text);
     L->Hit(tog1, "sort_function"); L->Hit(tog2, "sort_room");
     int cw = (a.W - 36) / 8;
     for (int i = 0; i < 8; i++) {
@@ -264,8 +265,8 @@ void UIBuyMode::Draw(Canvas& c, const Rect& a) {
     Rect grid(a.X + 14, y, a.W - 28, 46 * 3);
     _GridRect = grid;
     if (Category < 0) {
-        DrawTextCentered(c, FontId::Bold, Rect(grid.X, grid.Y + 40, grid.W, 16), RoomCategories ? "Pick a room" : "Pick a category", theme::Text);
-        DrawTextCentered(c, FontId::Small, Rect(grid.X, grid.Y + 60, grid.W, 14), UIUCP::Money(L->S->Budget()) + " to spend", RGBA(120, 255, 120));
+        DrawTextCentered(c, FontId::Bold, Rect(grid.X, grid.Y + 40, grid.W, 16), RoomCategories ? LangText("Pick a room") : LangText("Pick a category"), theme::Text);
+        DrawTextCentered(c, FontId::Small, Rect(grid.X, grid.Y + 60, grid.W, 14), UIUCP::Money(L->S->Budget()) + LangText(" to spend"), RGBA(120, 255, 120));
     } else {
         _Pages = DrawCatalogPage(L, c, grid, Current, Page, Selection, "item", L->S->Budget());
         bool prev = Page > 0, next = Page + 1 < _Pages;
@@ -280,12 +281,12 @@ void UIBuyMode::Draw(Canvas& c, const Rect& a) {
     // ---- info line
     int iy = grid.Bottom() + 2;
     c.FillRect(a.X + 1, iy, a.W - 2, a.Bottom() - iy - 1, RGBA(4, 8, 50));
-    std::string head = Category < 0 ? std::string(RoomCategories ? "Buy by room" : "Buy by function")
+    std::string head = Category < 0 ? std::string(RoomCategories ? LangText("Buy by room") : LangText("Buy by function"))
                                      : (RoomCategories ? gt.UI(150, Category, RoomNames[Category]) : gt.UI(150, 8 + Category, FunctionNames[Category]));
     char pg[32]; snprintf(pg, sizeof pg, "%d/%d", Page + 1, _Pages);
     DrawText(c, FontId::Bold, a.X + 6, iy + 2, head, RGBA(255, 230, 120));
     if (Category >= 0) DrawText(c, FontId::Small, a.Right() - 8 - TextWidth(FontId::Small, pg), iy + 3, pg, theme::TextDim);
-    DrawText(c, FontId::Small, a.X + 6, iy + 17, Category < 0 ? "Tap an item to pick it up, then place it on the lot." : (std::to_string(Current.size()) + " items, cheapest first"), theme::Text);
+    DrawText(c, FontId::Small, a.X + 6, iy + 17, Category < 0 ? LangText("Tap an item to pick it up, then place it on the lot.") : (std::to_string(Current.size()) + LangText(" items, cheapest first")), theme::Text);
 }
 
 bool UIBuyMode::Select(int index) {

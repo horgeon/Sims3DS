@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <sys/iosupport.h>
 #include <type_traits>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <exception>
@@ -202,6 +203,23 @@ static void OnAptEvent(APT_HookType hook, void*) {
     }
 }
 
+// TS1(sims) language: the first word of "language.txt" next to the data (App::Config::Language) selects the game's
+// language. Must be set before the first IFF loads.
+static std::string ReadLanguageFile(std::string&& path) {
+    if (FILE* f = fopen(path.c_str(), "r")) {
+        char buf[64] = {};
+        size_t n = fread(buf, 1, sizeof buf - 1, f);
+        fclose(f);
+        std::string s(buf, n), word;
+        for (char c : s) {
+            if (isspace((unsigned char)c)) { if (!word.empty()) break; }
+            else word += c;
+        }
+        return word;
+    }
+    return std::string();
+}
+
 int main(int argc, char** argv) {
     (void)argc; (void)argv;
     osSetSpeedupEnable(true); // New 3DS: 804 MHz + L2 cache (no effect on the old 3DS)
@@ -245,6 +263,7 @@ int main(int argc, char** argv) {
     cfg.VMBudgetMs = 14.0;      // at most ~14 ms of SimAntics per frame; ultra speed degrades gracefully
     cfg.ThumbInterval = 2;      // touch-screen copy of the lot at half rate (saves ~1.5 M instructions/frame)
     cfg.NowMs = NowMs;
+    cfg.Language = ReadLanguageFile(std::string(DATA_ROOT) + "/language.txt"); // TS1(sims): "" = English US
     // TS1(sims): one timestamped line per loading step in log.txt with the memory left (App::InstallLoadHooks)
     cfg.LogSteps = logSteps;
     // FIX(sims) hardware pass: "app free" was osGetMemRegionFree(APPLICATION), which never changes after start-up

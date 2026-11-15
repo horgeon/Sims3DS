@@ -6,6 +6,7 @@
 // sims front end — see UIGraphics.h. TS1(sims): new code (no FreeSims equivalent).
 #include "app/front/ResGraphics.h"
 #include "files/FAR1/FAR1Archive.h"
+#include "files/formats/iff/chunks/STR.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -275,7 +276,7 @@ static std::string ReadText(const std::string& path) {
 
 bool ResGraphics::Open(const std::string& dir) {
     _Far.reset();
-    _Index.clear(); _Consts.clear(); _Paths.clear();
+    _Index.clear(); _Consts.clear(); _Paths.clear(); _LangScore.clear();
     try {
         _Far.reset(new FAR1Archive(dir + "/UIGraphics.far", false));
     } catch (...) {
@@ -320,8 +321,10 @@ void ResGraphics::ParseHeader(const std::string& text) {
     }
 }
 
-// "{RLEBMP,kName,"Path/File.bmp"}" or "{BITMAP,kName,"Path", kRes_LanguageX}" (only the default entry is kept)
+// "{RLEBMP,kName,"Path/File.bmp"}" or "{BITMAP,kName,"Path", kRes_LanguageX}": use entry for the selected game language
+// if available, English otherwise.
 void ResGraphics::ParseRT(const std::string& text) {
+    int defaultLang = (int)FSO::Files::Formats::IFF::Chunks::STR::DefaultLangCode;
     size_t pos = 0;
     while ((pos = text.find('{', pos)) != std::string::npos) {
         size_t end = text.find('}', pos);
@@ -342,14 +345,22 @@ void ResGraphics::ParseRT(const std::string& text) {
         while (!name.empty() && (name.back() == ',' || std::isspace((unsigned char)name.back()))) name.pop_back();
         while (!name.empty() && std::isspace((unsigned char)name[0])) name.erase(0, 1);
         std::string path = body.substr(q1 + 1, q2 - q1 - 1);
-        bool lang = body.find("kRes_Language", q2) != std::string::npos;
+        // optional third field after the path: a language tag ("kRes_Language..." from Res_Languages.h;
+        // kRes_LanguageDefault = 0 is the same as untagged). Unknown names (-1) count as "another language".
+        int lang = 0;
+        size_t tag = body.find("kRes_Language", q2);
+        if (tag != std::string::npos) {
+            size_t b = tag;
+            while (b < body.size() && (std::isalnum((unsigned char)body[b]) || body[b] == '_')) b++;
+            lang = Const(body.substr(tag, b - tag));
+        }
         int id = Const(name);
         if (id < 0) { // a constant missing from the headers: keep the entry by name
             id = 1000000 + (int)_Consts.size();
             _Consts[name] = id;
         }
-        if (lang && _Paths.count(id)) continue;
-        if (!_Paths.count(id)) _Paths[id] = path;
+        int score = lang == defaultLang ? 2 : (lang == 0 ? 1 : 0); // selected language > default > another
+        if (!_Paths.count(id) || score > _LangScore[id]) { _Paths[id] = path; _LangScore[id] = score; }
     }
 }
 

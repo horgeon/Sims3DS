@@ -8,6 +8,7 @@
 #include "files/SafeFile.h"
 #include "content/ContentManager.h"
 #include "files/FAR1/FAR1Archive.h"
+#include "files/formats/iff/chunks/STR.h" // TS1(sims) language: the format -3 chunks carry per-language sets
 #include "files/formats/iff/chunks/NBRS.h"
 #include "content/TS1NeighbourProvider.h"
 #include <algorithm>
@@ -131,12 +132,19 @@ std::vector<uint8_t> RawIff::Build(const std::vector<RawIffChunk>& chunks) {
 std::vector<uint8_t> RawIff::MakeSTRFormat3(const std::vector<std::string>& values) {
     std::vector<uint8_t> o;
     PutLE16(o, 0xFFFD);
-    PutLE16(o, (uint16_t)values.size());
-    for (auto& v : values) {
-        o.push_back(1); // US English
-        o.insert(o.end(), v.begin(), v.end());
-        o.push_back(0);
-        o.push_back(0); // empty comment
+    // TS1(sims) language: entries for the selected language, then US English as a fallback when it differs
+    // (STR::Read keeps only those two for read-only files; ReadSTRValues prefers the selected language).
+    std::vector<int> langs = { (int)FSO::Files::Formats::IFF::Chunks::STR::DefaultLangCode };
+    if (langs[0] != (int)FSO::Files::Formats::IFF::Chunks::STRLangCode::EnglishUS)
+        langs.push_back((int)FSO::Files::Formats::IFF::Chunks::STRLangCode::EnglishUS);
+    PutLE16(o, (uint16_t)(values.size() * langs.size()));
+    for (int lang : langs) {
+        for (auto& v : values) {
+            o.push_back((uint8_t)lang);
+            o.insert(o.end(), v.begin(), v.end());
+            o.push_back(0);
+            o.push_back(0); // empty comment
+        }
     }
     return o;
 }
@@ -160,12 +168,15 @@ std::vector<std::string> RawIff::ReadSTRValues(const std::vector<uint8_t>& d) {
         case -2: { uint16_t n = u16(); for (int i = 0; i < n; i++) { out.push_back(cstr()); cstr(); } break; }
         case -3: {
             uint16_t n = u16();
-            std::vector<std::string> first;
+            std::vector<std::string> first, english, selected; // a non-English language, US English, the selected one
+            int selLang = (int)FSO::Files::Formats::IFF::Chunks::STR::DefaultLangCode; // TS1(sims) language
             for (int i = 0; i < n && p < d.size(); i++) {
                 uint8_t lang = u8(); auto v = cstr(); cstr();
-                if (lang == 1 || lang == 0) out.push_back(v); else first.push_back(v);
+                if (lang == 1 || lang == 0) english.push_back(v);
+                else if (lang == selLang) selected.push_back(v);
+                else first.push_back(v);
             }
-            if (out.empty()) out = first;
+            out = !selected.empty() ? selected : (!english.empty() ? english : first);
             break;
         }
         case -4: {

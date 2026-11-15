@@ -9,6 +9,7 @@
 #include "app/LotScreen.h"
 #include "app/Font.h"
 #include "app/Theme.h"
+#include "app/LangText.h"
 #include "app/ui/UIGraphics.h"
 #include "app/ui/GameText.h"
 #include "world/World.h"
@@ -27,7 +28,7 @@ void UIOptionsPanel::Draw(Canvas& c, const Rect& a) {
 
     // ---- view controls (TS1 camera panel)
     int x0 = a.X + 8, y = a.Y + 24;
-    DrawText(c, FontId::Small, x0, y, "View", RGBA(150, 170, 255));
+    DrawText(c, FontId::Small, x0, y, LangText("View"), RGBA(150, 170, 255));
     y += 14;
     L->DrawArtButton(c, Rect(x0, y, 30, 30), "cpanel/Buttons/rotleft.bmp", 4, false, false, "<", "opt_rotl");
     L->DrawArtButton(c, Rect(x0 + 34, y, 30, 30), "cpanel/Buttons/rotright.bmp", 4, false, false, ">", "opt_rotr");

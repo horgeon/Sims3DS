@@ -13,6 +13,7 @@
 #include "files/LoadProgress.h"
 #include "app/Font.h"
 #include "app/Theme.h"
+#include "app/LangText.h"
 #include "audio/GameAudio.h"
 #include "content/ContentManager.h"
 #include "content/TS1NeighbourProvider.h"
@@ -794,7 +795,7 @@ void CASScreen::DrawSimBottom(Canvas& c) {
         bool pr = _Pressed == "random" && _Touching;
         DrawPanel(c, L::Random);
         DrawDice(c, Rect(L::Random.X, L::Random.Y + 1, 24, 23), pr);
-        DrawText(c, FontId::Bold, L::Random.X + 28, L::Random.Y + 5, "Random", pr ? TextCyan : theme::TextBright);
+        DrawText(c, FontId::Bold, L::Random.X + 28, L::Random.Y + 5, LangText("Random"), pr ? TextCyan : theme::TextBright);
     }
     // done / cancel
     DrawArtButton(c, _Art.SimCancel, L::Cancel, "cancel", false, true, _Art.Str(130, 12, "Cancel"), 6);
@@ -813,7 +814,7 @@ void CASScreen::DrawFamilyTop(Canvas& c) {
     int n = (int)_Family.Members.size();
     if (n == 0) {
         DrawTextCentered(c, FontId::Bold, Rect(0, 100, 400, 20), _Art.Str(129, 0, "Add a New Sim"), TextCyan);
-        DrawTextCentered(c, FontId::Small, Rect(0, 122, 400, 16), "Tap the  +  button on the touch screen", TextHint);
+        DrawTextCentered(c, FontId::Small, Rect(0, 122, 400, 16), LangText("Tap the  +  button on the touch screen"), TextHint);
         return;
     }
     SyncLineup();
@@ -918,7 +919,7 @@ void CASScreen::Draw(Canvas& top, Canvas& bottom) {
     if (bottom.Width != 320 || bottom.Height != 240) bottom.Resize(320, 240);
     if (!_Ready) {
         top.Clear(theme::ScreenBg); bottom.Clear(theme::ScreenBg);
-        DrawTextCentered(top, FontId::Bold, Rect(0, 100, 400, 20), "Create A Family is unavailable", theme::TextYellow);
+        DrawTextCentered(top, FontId::Bold, Rect(0, 100, 400, 20), LangText("Create A Family is unavailable"), theme::TextYellow);
         Wrapped(bottom, FontId::Small, Rect(10, 90, 300, 60), Error, theme::Text, 4);
         return;
     }
@@ -932,7 +933,7 @@ void CASScreen::Draw(Canvas& top, Canvas& bottom) {
     }
     if (_State == State::Saving) {
         bottom.Dim(0, 0, 320, 240, 120);
-        DrawTextCentered(bottom, FontId::Bold, Rect(0, 110, 320, 20), "Saving...", theme::TextYellow);
+        DrawTextCentered(bottom, FontId::Bold, Rect(0, 110, 320, 20), LangText("Saving..."), theme::TextYellow);
     }
     if (_Dialog.Open) DrawDialog(bottom);
 }

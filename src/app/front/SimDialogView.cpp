@@ -9,6 +9,7 @@
 #include "app/front/FrontStrings.h"
 #include "app/front/ResGraphics.h"
 #include "app/front/TS1Font.h"
+#include "app/LangText.h"
 #include "app/Font.h"
 #include "app/LotScreen.h"
 #include "app/LotSession.h"
@@ -137,7 +138,7 @@ void SimDialogView::DrawClothes(LotSession& s, Canvas& top, Canvas& bottom) {
             TextCentered(bottom, TS1Size::S9, Rect(r.X, r.Bottom() - 13, r.W, 11), Fit(TS1Size::S9, nm.substr(cut), r.W - 2), RGBA(220, 230, 255));
         }
     }
-    if (n == 0) TextCentered(bottom, TS1Size::S10, Rect(bp.X, 100, bp.W, 14), "No outfits to choose from.", RGBA(220, 230, 255));
+    if (n == 0) TextCentered(bottom, TS1Size::S10, Rect(bp.X, 100, bp.W, 14), LangText("No outfits to choose from."), RGBA(220, 230, 255));
     if (_OutfitPage > 0) bottom.FillTriangle(8, 120, 20, 104, 20, 136, RGBA(150, 200, 255));
     if (_OutfitPage + 1 < pages) bottom.FillTriangle(312, 120, 300, 104, 300, 136, RGBA(150, 200, 255));
     TextButton cancel; cancel.Label = T.Get(152, 1, "Cancel"); cancel.R = Rect(120, 210, 80, 24);
@@ -187,7 +188,7 @@ void SimDialogView::DrawSpellbook(LotSession& s, Canvas& top, Canvas& bottom) {
     int made = 0;
     for (auto& e : book) if (e.Made) made++;
     // the title is the book's, not the dialog operand's (that can be a stale string of the caller)
-    std::string title = "Spellbook";
+    std::string title = LangText("Spellbook");
     auto artFor = [&](int idx) { // STR#3 order: charms (EverAfter Crafter) first, then the wand spells from "Mood Up"
         bool wand = false;
         for (int i = 0; i <= idx && i < n; i++) if (book[(size_t)i].Name == "Mood Up") wand = true;
@@ -246,7 +247,7 @@ void SimDialogView::DrawSpellbook(LotSession& s, Canvas& top, Canvas& bottom) {
         int dy = dr.Y + 6 + artH;
         for (auto& l : nameLines) { TextCentered(bottom, TS1Size::S12, Rect(dr.X, dy, dr.W, 15), l, RGBA(255, 216, 96)); dy += 15; }
         for (auto& ing : ings) { if (dy + 12 > dr.Bottom() - 14) break; TextCentered(bottom, TS1Size::S10, Rect(dr.X, dy, dr.W, 12), Fit(TS1Size::S10, ing, dr.W - 8), RGBA(200, 220, 255)); dy += 12; }
-        TextCentered(bottom, TS1Size::S10, Rect(dr.X, dr.Bottom() - 14, dr.W, 12), e.Made ? "Made by the family" : "Not made yet", e.Made ? RGBA(120, 255, 140) : RGBA(255, 180, 120));
+        TextCentered(bottom, TS1Size::S10, Rect(dr.X, dr.Bottom() - 14, dr.W, 12), e.Made ? LangText("Made by the family") : LangText("Not made yet"), e.Made ? RGBA(120, 255, 140) : RGBA(255, 180, 120));
     }
     if (_SpellPage > 0) bottom.FillTriangle(10, 216, 30, 204, 30, 228, RGBA(150, 200, 255));
     if (_SpellPage + 1 < pages) bottom.FillTriangle(310, 216, 290, 204, 290, 228, RGBA(150, 200, 255));

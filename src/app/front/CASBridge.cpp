@@ -8,6 +8,7 @@
 #include "app/front/FrontStrings.h"
 #include "app/front/FrontUI.h"
 #include "app/front/TS1Font.h"
+#include "app/LangText.h"
 #include "app/front/ResGraphics.h"
 #include "content/ContentManager.h"
 #include "files/LoadProgress.h"
@@ -88,7 +89,7 @@ private:
         bottom.FillRect(bar.X, bar.Y, bar.W, bar.H, RGBA(0, 0, 30, 255));
         if (_Fraction >= 0) bottom.FillRect(bar.X, bar.Y, (int)(bar.W * (_Fraction > 1 ? 1.0f : _Fraction)), bar.H, RGBA(120, 200, 255, 255));
         else { int w = bar.W / 4, x = bar.X + (int)((_Sweep++ * 23) % (unsigned)(bar.W - w)); bottom.FillRect(x, bar.Y, w, bar.H, RGBA(120, 200, 255, 255)); }
-        TextCentered(bottom, TS1Size::S9, Rect(0, 164, bottom.Width, 13), _Text.empty() ? std::string("Please wait...") : _Text, RGBA(210, 220, 240));
+        TextCentered(bottom, TS1Size::S9, Rect(0, 164, bottom.Width, 13), _Text.empty() ? LangText("Please wait...") : _Text, RGBA(210, 220, 240));
     }
     std::string _DataRoot, _UserDir;
     std::unique_ptr<simapp::cas::CASScreen> _Cas;
@@ -163,7 +164,7 @@ public:
         bottom.GradientV(0, 0, bottom.Width, bottom.Height, RGBA(10, 30, 110), RGBA(0, 8, 50));
         if (_Logo.Width > 0) bottom.Blit(_Logo.Px.data(), _Logo.Width, _Logo.Height, (bottom.Width - _Logo.Width) / 2, 30, false);
         TextCentered(bottom, TS1Size::S10, Rect(0, 200, bottom.Width, 14), FrontStrings::Get().Get(154, 4, "Maxis is an Electronic Arts brand."), RGBA(170, 190, 230));
-        TextCentered(bottom, TS1Size::S9, Rect(0, 218, bottom.Width, 14), "Tap to return  -  hold DOWN to scroll faster", RGBA(120, 140, 190));
+        TextCentered(bottom, TS1Size::S9, Rect(0, 218, bottom.Width, 14), LangText("Tap to return  -  hold DOWN to scroll faster"), RGBA(120, 140, 190));
         return !(in.TouchDown || (in.Down & (BTN_A | BTN_B | BTN_START)));
     }
 private:

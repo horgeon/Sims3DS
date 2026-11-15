@@ -7,6 +7,7 @@
 #include "app/front/SaveOverlay.h"
 #include "app/front/FrontUI.h"
 #include "app/front/TS1Font.h"
+#include "app/LangText.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -47,11 +48,11 @@ void SaveOverlay::Begin(const Canvas& top, const Canvas& bottom, const std::stri
     bool sub = !lotName.empty();
     Rect p((_Top.Width - 240) / 2, (_Top.Height - (sub ? 66 : 48)) / 2, 240, sub ? 66 : 48);
     Panel(_Top, p);
-    TextCentered(_Top, TS1Size::S16, Rect(p.X, p.Y + 10, p.W, 24), "Saving...", kGold, kShadow);
+    TextCentered(_Top, TS1Size::S16, Rect(p.X, p.Y + 10, p.W, 24), LangText("Saving..."), kGold, kShadow);
     if (sub) TextCentered(_Top, TS1Size::S10, Rect(p.X, p.Y + 38, p.W, 16), Fit(TS1Size::S10, lotName, p.W - 24), kWhite, kShadow);
     // touch screen: the panel; the bar's frame and the note under it do not change either
     Panel(_Bottom, kPanel);
-    TextCentered(_Bottom, TS1Size::S9, Rect(kPanel.X, kPanel.Y + 84, kPanel.W, 14), "Please do not turn off the power.", RGBA(200, 210, 240), RGBA(0, 0, 30, 160));
+    TextCentered(_Bottom, TS1Size::S9, Rect(kPanel.X, kPanel.Y + 84, kPanel.W, 14), LangText("Please do not turn off the power."), RGBA(200, 210, 240), RGBA(0, 0, 30, 160));
 }
 
 void SaveOverlay::Draw(Canvas& top, Canvas& bottom, const std::string& step, float fraction) const {

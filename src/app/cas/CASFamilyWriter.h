@@ -78,7 +78,8 @@ public:
     static bool ReadIff(const std::vector<uint8_t>& file, std::vector<CASRawChunk>& out);
     /// Serialises chunks, dropping 'XXXX' and any old 'rsmp', and appends a rebuilt rsmp (version 0).
     static std::vector<uint8_t> WriteIff(const std::vector<CASRawChunk>& chunks);
-    /// STR#/CTSS/FAMs body in TS1 format -3 (language code byte + C strings), US English.
+    /// STR#/CTSS/FAMs body in TS1 format -3 (language code byte + C strings), the selected game language
+    /// (STR::DefaultLangCode) plus US English as a fallback.
     static std::vector<uint8_t> MakeSTRFormat3(const std::vector<std::string>& values);
     /// 24-bit Windows BMP (BMP_ chunk body).
     static std::vector<uint8_t> MakeBMP24(const Canvas& img);

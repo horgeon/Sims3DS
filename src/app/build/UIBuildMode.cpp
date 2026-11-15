@@ -10,6 +10,7 @@
 #include "app/build/UIFloorPainter.h"
 #include "app/build/UITerrainTools.h"
 #include "app/WorldPicking.h"
+#include "app/LangText.h"
 #include "files/formats/iff/IffFile.h"
 #include "files/formats/iff/chunks/STR.h"
 #include "app/buy/UIBuyMode.h"
@@ -342,10 +343,10 @@ void UIBuildMode::Draw(Canvas& c, const Rect& a) {
         if (CurrentTool == Tool::Hand) {
             L->DrawArtButton(c, Rect(tb.X + 4, tb.Y + 4, 40, 34), "cpanel/Buttons/toolBtnHand.bmp", 4, true, false, "Hand", "tool8");
             DrawText(c, FontId::Bold, tb.X + 50, tb.Y + 6, gt.UI(139, 11, "Hand Tool"), RGBA(255, 230, 120));
-            DrawText(c, FontId::Small, tb.X + 50, tb.Y + 22, "Tap an object to move or sell it.", theme::Text);
+            DrawText(c, FontId::Small, tb.X + 50, tb.Y + 22, LangText("Tap an object to move or sell it."), theme::Text);
             Rect back(tb.Right() - 80, tb.Y + 44, 74, 26);
             c.FillRoundRect(back, 6, theme::ButtonBg);
-            DrawTextCentered(c, FontId::Bold, back, "Tools", theme::TextBright);
+            DrawTextCentered(c, FontId::Bold, back, LangText("Tools"), theme::TextBright);
             L->Hit(back, "catalog");
             return;
         }
@@ -356,16 +357,16 @@ void UIBuildMode::Draw(Canvas& c, const Rect& a) {
         Rect er(tb.X + 4, tb.Y + 4, 64, 28), sr(tb.X + 72, tb.Y + 4, 72, 28), dr(tb.Right() - 70, tb.Y + 4, 64, 28);
         c.FillRoundRect(er, 6, Erase ? RGBA(160, 50, 40) : theme::ButtonBg);
         if (!terrain) {
-            DrawTextCentered(c, FontId::Bold, er, wall || pool ? "Delete" : "Erase", theme::TextBright);
+            DrawTextCentered(c, FontId::Bold, er, wall || pool ? gt.UI(144, 4, "Delete") : LangText("Erase"), theme::TextBright);
             L->Hit(er, "draw_erase");
         } else c.FillRoundRect(er, 6, RGBA(6, 10, 60));
         if (!pool) {
             c.FillRoundRect(sr, 6, Shift ? RGBA(30, 120, 170) : theme::ButtonBg);
-            DrawTextCentered(c, FontId::Bold, sr, wall ? "Room" : (terrain ? "Invert" : "Fill"), theme::TextBright);
+            DrawTextCentered(c, FontId::Bold, sr, wall ? LangText("Room") : (terrain ? LangText("Invert") : LangText("Fill")), theme::TextBright);
             L->Hit(sr, "draw_shift");
         }
         c.FillRoundRect(dr, 6, RGBA(30, 120, 50));
-        DrawTextCentered(c, FontId::Bold, dr, "Done", theme::TextBright);
+        DrawTextCentered(c, FontId::Bold, dr, gt.UI(129, 3, "Done"), theme::TextBright);
         L->Hit(dr, "draw_done");
         std::string name = _ActiveElement ? UICatalog::Get().GetDetails(*_ActiveElement).Name : std::string("");
         int price = _ActiveElement ? (int)_ActiveElement->Price : 0;
@@ -373,7 +374,7 @@ void UIBuildMode::Draw(Canvas& c, const Rect& a) {
         char line[160];
         snprintf(line, sizeof line, "%s  %s", name.c_str(), price ? UIUCP::Money(price).c_str() : "");
         DrawText(c, FontId::Small, tb.X + 6, tb.Y + 37, Ellipsize(FontId::Small, line, tb.W - 12), RGBA(255, 230, 120));
-        DrawText(c, FontId::Small, tb.X + 6, tb.Y + 51, wall ? "Drag to build walls  (Y delete, X room)" : terrain ? "Tap/drag, hold to continue  (X invert)" : pool ? "Drag to dig  (Y delete)" : "Drag to paint  (Y erase, X fill)", RGBA(120, 130, 200));
+        DrawText(c, FontId::Small, tb.X + 6, tb.Y + 51, wall ? LangText("Drag to build walls  (Y delete, X room)") : terrain ? LangText("Tap/drag, hold to continue  (X invert)") : pool ? LangText("Drag to dig  (Y delete)") : LangText("Drag to paint  (Y erase, X fill)"), RGBA(120, 130, 200));
         return;
     }
     // ---- tool rows (TS1 order, two rows of six)
@@ -393,7 +394,7 @@ void UIBuildMode::Draw(Canvas& c, const Rect& a) {
     y += 16;
     Rect grid(a.X + 14, y, a.W - 28, 46 * 3);
     if (CurrentTool == Tool::None) {
-        DrawTextCentered(c, FontId::Small, Rect(grid.X, grid.Y + 30, grid.W, 14), "Pick a tool", theme::Text);
+        DrawTextCentered(c, FontId::Small, Rect(grid.X, grid.Y + 30, grid.W, 14), LangText("Pick a tool"), theme::Text);
         _Pages = 1;
     } else if (CurrentTool == Tool::Terrain || CurrentTool == Tool::Pool) {
         DrawSubTools(c, grid);
@@ -417,7 +418,7 @@ void UIBuildMode::Draw(Canvas& c, const Rect& a) {
     int iy = grid.Bottom() + 2;
     if (a.Bottom() - iy > 14) {
         c.FillRect(a.X + 1, iy, a.W - 2, a.Bottom() - iy - 1, RGBA(4, 8, 50));
-        DrawText(c, FontId::Small, a.X + 6, iy + 2, "Pick an item, then draw or place it.  Game paused.", theme::TextDim);
+        DrawText(c, FontId::Small, a.X + 6, iy + 2, LangText("Pick an item, then draw or place it.  Game paused."), theme::TextDim);
     }
 }
 
@@ -437,11 +438,11 @@ void UIBuildMode::DrawSubTools(Canvas& c, const Rect& grid) {
     if (SubSelection >= 0 && SubSelection < (int)SubTools.size()) {
         auto& t = SubTools[(size_t)SubSelection];
         DrawText(c, FontId::Bold, grid.X, ty, t.Name, RGBA(255, 230, 120));
-        const char* hint = CurrentTool == Tool::Pool ? "Drag to dig  (Y: delete)" :
-            (t.Id == 2 ? "Drag across to level" : (t.Id == 3 ? "Drag to plant grass" : "Tap or drag; hold to keep going  (X: invert)"));
+        std::string hint = CurrentTool == Tool::Pool ? LangText("Drag to dig  (Y: delete)") :
+            (t.Id == 2 ? LangText("Drag across to level") : (t.Id == 3 ? LangText("Drag to plant grass") : LangText("Tap or drag; hold to keep going  (X: invert)")));
         DrawText(c, FontId::Small, grid.X, ty + 15, hint, RGBA(120, 130, 200));
     } else {
-        DrawText(c, FontId::Small, grid.X, ty, CurrentTool == Tool::Pool ? "Pick the pool or the water tool." : "Pick raise, lower or level.", theme::Text);
+        DrawText(c, FontId::Small, grid.X, ty, CurrentTool == Tool::Pool ? LangText("Pick the pool or the water tool.") : LangText("Pick raise, lower or level."), theme::Text);
     }
 }
 

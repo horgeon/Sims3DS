@@ -7,6 +7,7 @@
 #include "app/front/FamilyPicker.h"
 #include "app/front/FrontStrings.h"
 #include "app/front/TS1Font.h"
+#include "app/LangText.h"
 #include <algorithm>
 #include <cmath>
 
@@ -132,7 +133,7 @@ void FamilyPicker::DrawBottom(Canvas& c) {
     Text(c, TS1Size::S12, 12, 7, ImportMode ? T.Get(151, 6, "Import Family") : T.Get(128, 8, "SELECT A FAMILY"), RGBA(255, 255, 255), RGBA(0, 0, 40, 200));
     int n = (int)_List.size();
     if (n == 0 && ImportMode) {
-        TextCentered(c, TS1Size::S10, Rect(8, 90, 288, 14), "No family files (.FAM) found.", RGBA(200, 220, 255));
+        TextCentered(c, TS1Size::S10, Rect(8, 90, 288, 14), LangText("No family files (.FAM) found."), RGBA(200, 220, 255));
     } else if (n == 0) {
         auto lines = Wrap(TS1Size::S10, T.Get(128, 14, "You can create a new family by clicking on the Create a Family button at the bottom of the screen"), 240);
         int y = 90;

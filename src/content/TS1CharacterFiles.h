@@ -46,9 +46,11 @@ namespace RawIff {
     bool Parse(const std::vector<uint8_t>& file, std::vector<RawIffChunk>& out);
     /// Serialises chunks, dropping 'XXXX' and any old 'rsmp', and appends a rebuilt rsmp.
     std::vector<uint8_t> Build(const std::vector<RawIffChunk>& chunks);
-    /// STR#/CTSS/FAMs/uChr body in TS1 format -3 (language code byte + value + comment), US English.
+    /// STR#/CTSS/FAMs/uChr body in TS1 format -3 (language code byte + value + comment), the selected
+    /// game language (STR::DefaultLangCode) plus US English as a fallback.
     std::vector<uint8_t> MakeSTRFormat3(const std::vector<std::string>& values);
-    /// Values of a STR#-style chunk (formats 0, -1, -2, -3, -4), the US English (language 1 / first) entries.
+    /// Values of a STR#-style chunk (formats 0, -1, -2, -3, -4): the selected language's entries when the
+    /// chunk carries languages (format -3), else the first language (US English).
     std::vector<std::string> ReadSTRValues(const std::vector<uint8_t>& data);
     RawIffChunk* Find(std::vector<RawIffChunk>& chunks, const std::string& type, uint16_t id);
 }

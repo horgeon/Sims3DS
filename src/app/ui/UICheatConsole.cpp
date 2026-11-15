@@ -9,6 +9,7 @@
 #include "app/LotScreen.h"
 #include "app/LotSession.h"
 #include "app/Font.h"
+#include "app/LangText.h"
 #include "app/cas/CASTextInput.h"
 #include "app/front/FrontEnd.h"
 #include "app/front/FrontUI.h"
@@ -83,7 +84,7 @@ bool UICheatConsole::Update(const AppInput& in) {
     if (!Open) return false;
     if (_KeyboardIn > 0 && --_KeyboardIn == 0) {
         cas::CASTextRequest req;
-        req.Hint = "Enter Cheat Code:";
+        req.Hint = LangText("Enter Cheat Code:");
         req.MaxLength = 120;
         std::string text;
         if (!cas::CASSystemKeyboard(req, text)) { Close(); return true; } // Cancel closes the box (Ctrl+Shift+C again)
@@ -251,7 +252,7 @@ void UICheatConsole::Draw(Canvas& top, double timeMs) {
         top.StrokeRoundRect(box.X, box.Y, box.W, box.H, 6, RGBA(140, 150, 230));
     }
     int y = box.Y + 6;
-    Text(top, TS1Size::S10, box.X + 10, y, "Enter Cheat Code:", col::TextGold, col::Shadow);
+    Text(top, TS1Size::S10, box.X + 10, y, LangText("Enter Cheat Code:"), col::TextGold, col::Shadow);
     y += 14;
     Rect field(box.X + 8, y, box.W - 16, 16);
     top.FillRect(field, RGBA(0, 10, 50, 230));

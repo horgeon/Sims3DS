@@ -70,6 +70,10 @@ public:
     std::vector<STRLanguageSet> LanguageSets; //20 entries (fewer only for format -4)
     static STRLangCode DefaultLangCode;
 
+    /// TS1(sims) language selection: the config value is an ISO 639-1 code and an ISO 3166-1 alpha-2 code separated by
+    /// a dash ("en-US", "fr-FR"...). Unknown code defaults to English US.
+    static bool ParseLanguageCode(const std::string& name, STRLangCode& out);
+
     STR();
 
     /// <summary>

@@ -6,6 +6,7 @@
 // Translated from FreeSims sims.files/formats/iff/chunks/STR.cs
 #include "files/formats/iff/chunks/STR.h"
 #include "files/formats/iff/IffFile.h"
+#include <utility>
 
 namespace FSO { namespace Files { namespace Formats { namespace IFF { namespace Chunks {
 
@@ -34,6 +35,30 @@ const char* const STR::LanguageSetNames[20] =
 };
 
 STRLangCode STR::DefaultLangCode = STRLangCode::EnglishUS;
+
+bool STR::ParseLanguageCode(const std::string& name, STRLangCode& out)
+{
+    // TS1(sims) language selection: the config value is an ISO 639-1 code and an ISO 3166-1 alpha-2 code separated by
+    // a dash ("en-US", "fr-FR"...). Unknown code defaults to English US.
+    size_t b = name.find_first_not_of(" \t\r\n");
+    if (b == std::string::npos) return false;
+    size_t e = name.find_last_not_of(" \t\r\n");
+    std::string key = name.substr(b, e - b + 1);
+    static const std::pair<const char*, STRLangCode> codes[] = {
+        { "en-US", STRLangCode::EnglishUS }, { "en-GB", STRLangCode::EnglishUK },
+        { "fr-FR", STRLangCode::French },    { "de-DE", STRLangCode::German },
+        { "it-IT", STRLangCode::Italian },   { "es-ES", STRLangCode::Spanish },
+        { "nl-NL", STRLangCode::Dutch },     { "da-DK", STRLangCode::Danish },
+        { "sv-SE", STRLangCode::Swedish },   { "no-NO", STRLangCode::Norwegian },
+        { "fi-FI", STRLangCode::Finish },    { "he-IL", STRLangCode::Hebrew },
+        { "ru-RU", STRLangCode::Russian },   { "pt-PT", STRLangCode::Portuguese },
+        { "ja-JP", STRLangCode::Japanese },  { "pl-PL", STRLangCode::Polish },
+        { "zh-CN", STRLangCode::SimplifiedChinese }, { "zh-TW", STRLangCode::TraditionalChinese },
+        { "th-TH", STRLangCode::Thai },      { "ko-KR", STRLangCode::Korean },
+    };
+    for (auto& c : codes) if (key == c.first) { out = c.second; return true; }
+    return false;
+}
 
 STR::STR()
 {

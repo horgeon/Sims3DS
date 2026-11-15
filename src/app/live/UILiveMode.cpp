@@ -10,6 +10,7 @@
 #include "app/LotScreen.h"
 #include "app/Font.h"
 #include "app/Theme.h"
+#include "app/LangText.h"
 #include "app/WorldPicking.h"
 #include "app/ui/UIGraphics.h"
 #include "app/ui/GameText.h"
@@ -264,7 +265,7 @@ void UILiveMode::DrawJob(Canvas& c, const Rect& r, VMAvatar* sim) {
     int lh = LineHeight(FontId::Small);
     int y = r.Y + 2;
     if (job == nullptr || level < 0 || level >= (int)job->JobLevels.size()) {
-        DrawText(c, FontId::Bold, r.X + 4, y, jobType > 0 ? job == nullptr ? std::string("Job #") + std::to_string(jobType) : ToLatin1(job->Name) : gt.Live(136, 7, "Unemployed"), RGBA(255, 230, 120));
+        DrawText(c, FontId::Bold, r.X + 4, y, jobType > 0 ? job == nullptr ? LangText("Job #") + std::to_string(jobType) : ToLatin1(job->Name) : gt.Live(136, 7, "Unemployed"), RGBA(255, 230, 120));
         y += lh + 2;
         if (jobType <= 0 && r.H > 60) {
             for (auto& l : WrapText(FontId::Small, gt.Live(137, 13, ""), splitX - r.X - 8)) { if (y > r.Bottom() - lh) break; DrawText(c, FontId::Small, r.X + 4, y, l, theme::Text); y += lh; }
@@ -384,7 +385,7 @@ void UILiveMode::DrawRelationships(Canvas& c, const Rect& r, VMAvatar* sim) {
     int16_t me = VMTS1Neighbourhood::NeighborIDOf(sim);
     auto mine = me > 0 ? VMTS1Neighbourhood::GetNeighbor(me) : nullptr;
     if (provider == nullptr || mine == nullptr || mine->Relationships.empty()) {
-        DrawTextCentered(c, FontId::Small, r, "No relationships yet", theme::TextDim);
+        DrawTextCentered(c, FontId::Small, r, LangText("No relationships yet"), theme::TextDim);
         return;
     }
     // sorted by daily relationship, best first

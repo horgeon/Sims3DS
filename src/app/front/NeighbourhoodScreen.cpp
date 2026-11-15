@@ -13,13 +13,27 @@
 #include "app/front/FrontEnd.h"
 #include "app/front/FrontStrings.h"
 #include "app/front/TS1Font.h"
+#include "app/LangText.h"
 #include "files/LoadProgress.h"
+#include "files/formats/iff/chunks/STR.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
 namespace simapp { namespace front {
+
+// Use localized neighbourhood banner logo if available, English otherwise.
+static const char* NghSimsLogoArt() {
+    using FSO::Files::Formats::IFF::Chunks::STRLangCode;
+    switch ((int)FSO::Files::Formats::IFF::Chunks::STR::DefaultLangCode) {
+        case (int)STRLangCode::French: return "kNghSimsLogo_FR";
+        case (int)STRLangCode::German: return "kNghSimsLogo_GR";
+        case (int)STRLangCode::Spanish: return "kNghSimsLogo_SP";
+        case (int)STRLangCode::Japanese: return "kNghSimsLogo_JP";
+        default: return "kNghSimsLogoEn";
+    }
+}
 
 static const int MAP_W = 800, MAP_H = 600;
 static const float BS = 0.4f;   // touch screen scale of the 800x600 screens
@@ -249,7 +263,7 @@ void NeighbourhoodScreen::BuildButtons() {
     }
     if (_Area == Area::Neighbourhood) {
         // FIX(sims) FB1: layout for the 0.5 banner (logo 35, buttons 27, Previous / Next 13 + the number 14 between)
-        add("credits", "kNghSimsLogoEn", 1, T.Get(151, 8, "Credits"), 1);
+        add("credits", NghSimsLogoArt(), 1, T.Get(151, 8, "Credits"), 1);
         add("movein", "kNghMoveIn", 38, T.Get(151, 0, "Select or Create Family"));
         add("bulldoze", "kNghBulldoze", 65, T.Get(151, M.Unleashed() ? 10 : 1, "Evict or Bulldoze"));
         add("import", "kNghImport", 92, T.Get(151, 6, "Import Family")); // TS1(sims): OpenImport (.FAM)
@@ -269,7 +283,7 @@ void NeighbourhoodScreen::BuildButtons() {
     } else {
         int tips = _Area == Area::Downtown ? 169 : _Area == Area::Vacation ? 170 : _Area == Area::StudioTown ? 173 : 174;
         const AreaDef& def = GetAreaDef(_Area, M.Unleashed());
-        add("credits", _Area == Area::Downtown ? "kDowntownCredits" : _Area == Area::StudioTown ? "kStudiotownCredits" : "kNghSimsLogoEn", 1, T.Get(tips, 2, "Credits"), 1);
+        add("credits", _Area == Area::Downtown ? "kDowntownCredits" : _Area == Area::StudioTown ? "kStudiotownCredits" : NghSimsLogoArt(), 1, T.Get(tips, 2, "Credits"), 1);
         add("return", def.ReturnButton, 38, T.Get(tips, 0, "Return to Neighborhood View"));
         add("bulldoze", _Area == Area::Downtown ? "kDowntownBulldoze" : _Area == Area::StudioTown ? "kStudiotownBulldoze" : "kNghBulldoze", 65, T.Get(tips, 4, "Bulldoze Lot"));
         add("import", _Area == Area::Downtown ? "kDowntownImport" : _Area == Area::Vacation ? "kVacationImport" : _Area == Area::StudioTown ? "kStudiotownImport" : "kMagictownImport",
@@ -331,7 +345,7 @@ void NeighbourhoodScreen::OpenPicker(int target) {
         _Mode = Mode::MoveIn;
         _MovingFamily = fam;
         auto f = _FE->Model().Family(fam);
-        Tip(f ? "Move In: " + Format(FrontStrings::Get().Get(134, 0, "The %s Family"), { f->Name }).substr(0, std::string::npos) : std::string("Move In"));
+        Tip(f ? LangText("Move In: ") + Format(FrontStrings::Get().Get(134, 0, "The %s Family"), { f->Name }).substr(0, std::string::npos) : LangText("Move In"));
     };
     Picker.OnCreate = [this, target]() {
         // "Create New Family": the Create-A-Sim screen (src/app/cas, see CASBridge.h)
@@ -545,9 +559,9 @@ void NeighbourhoodScreen::SwitchNeighbourhood(int dir) {
     if (exists) { GoToNeighbourhood(n); return; }
     auto broken = _FE->_Setup.Broken(); // FIX(sims) SAVE: set up, but its Neighborhood.iff is gone
     if (std::find(broken.begin(), broken.end(), n) != broken.end()) { OfferRestore(n); return; }
-    if (!_FE->_Setup.HasTemplates()) { Tip("No other neighborhoods."); return; }
+    if (!_FE->_Setup.HasTemplates()) { Tip(LangText("No other neighborhoods.")); return; }
     // TS1(sims) wording: the game silently created UserDataN from TemplateUserData
-    Dialog.Show(T.Get(145, 1, "Neighborhood") + " " + std::to_string(n + 1), "This neighborhood is empty. Create a new neighborhood here?",
+    Dialog.Show(T.Get(145, 1, "Neighborhood") + " " + std::to_string(n + 1), LangText("This neighborhood is empty. Create a new neighborhood here?"),
                 { T.Get(152, 2, "Yes"), T.Get(152, 3, "No") }, [this, n](int r) {
         if (r != 0) return;
         _FE->_Setup.PlanNew(n);
@@ -772,7 +786,7 @@ void NeighbourhoodScreen::DrawTop(Canvas& top) {
     std::string mode;
     if (_PickDone) mode = _PickTitle;
     else if (_Mode == Mode::Evict) mode = T.Get(151, M.Unleashed() ? 10 : 1, "Evict or Bulldoze");
-    else if (_Mode == Mode::MoveIn) { if (auto f = M.Family(_MovingFamily)) mode = "Move In: " + f->Name; }
+    else if (_Mode == Mode::MoveIn) { if (auto f = M.Family(_MovingFamily)) mode = LangText("Move In: ") + f->Name; }
     if (!mode.empty()) {
         mode = Fit(TS1Size::S12, mode, top.Width - 24); // FIX(sims) REL: long titles ran off the right edge ("...drifting nearb")
         int w = TextW(TS1Size::S12, mode) + 16;

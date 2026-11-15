@@ -56,7 +56,8 @@ public:
 
     /// Resource id of a "kName" constant (-1 when unknown).
     int Const(const std::string& name) const;
-    /// FAR path of a resource id (the default-language entry), "" when unknown.
+    /// FAR path of a resource id: the selected game language's entry when the table has one, else the default entry.
+    // "" when unknown.
     std::string PathFor(int id) const;
     /// Raw bytes of a FAR member ("Nbhd/NScreen.BMP", any case, '/' or '\').
     std::vector<uint8_t> Raw(const std::string& path) const;
@@ -73,6 +74,7 @@ private:
     std::map<std::string, size_t> _Index;      // normalized path -> index into the far's entries
     std::map<std::string, int> _Consts;        // kName -> id
     std::map<int, std::string> _Paths;         // id -> path
+    std::map<int, int> _LangScore;             // id -> the stored path's language match (2 selected, 1 default, 0 other)
     void ParseHeader(const std::string& text);
     void ParseRT(const std::string& text);
     static std::string Normalize(const std::string& p);

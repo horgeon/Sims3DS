@@ -295,6 +295,9 @@ int main(int argc, char** argv) {
     }
     // TS1(sims): SIM3DS_LOGSTEPS=1: the 3DS log.txt step lines (time, heap, SD I/O per loading step)
     cfg.LogSteps = getenv("SIM3DS_LOGSTEPS") != nullptr;
+    // TS1(sims) language: SIM3DS_LANG=en-US (web locale format: ISO 639-1 + - + ISO 3166-1 alpha-2, see
+    // STR::ParseLanguageCode)
+    if (const char* lang = getenv("SIM3DS_LANG")) cfg.Language = lang;
     cfg.MemInfo = []() {
         char buf[96];
         snprintf(buf, sizeof buf, "heap live %.1f MB, peak %.1f MB", g_HeapLive / 1048576.0, g_HeapPeak / 1048576.0);

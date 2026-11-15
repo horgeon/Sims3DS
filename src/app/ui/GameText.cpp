@@ -32,7 +32,9 @@ static void LoadTables(const std::string& path, const int* tables, int n, std::m
 
 void GameText::Load(const std::string& gameDataDir) {
     if (!_UI.empty()) return;
-    static const int ui[] = { 133, 137, 138, 139, 140, 145, 148, 150, 152, 160, 200, 201, 202, 203, 204, 205, 206, 207, 210 };
+    static const int ui[] = { 129, 133, 137, 138, 139, 140, 142, 144, 145, 148, 150, 152, 153, 160, 200, 201, 202, 203, 204, 205, 206, 207, 210 };
+    // 129/142/144 (DesignFamilyStrs / ObjDialogs / ScrapStrs): generic button texts ("Done", "Cancel", "Delete")
+    // the port's own panels use too — TS1(sims) language: they follow the game language like every STR# string.
     static const int live[] = { 130, 131, 132, 133, 134, 136, 137 };
     LoadTables(gameDataDir + "/UIText.iff", ui, (int)(sizeof ui / sizeof ui[0]), _UI);
     LoadTables(gameDataDir + "/Live.iff", live, (int)(sizeof live / sizeof live[0]), _Live);

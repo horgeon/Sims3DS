@@ -6,10 +6,12 @@
 // sims app — see App.h
 #include "app/App.h"
 #include "files/LoadProgress.h"
+#include "files/formats/iff/chunks/STR.h" // TS1(sims) language: DefaultLangCode before any content loads
 #include <new>
 #include "audio/GameAudio.h"
 #include "app/Font.h"
 #include "app/Theme.h"
+#include "app/LangText.h"
 #include "app/WorldPicking.h"
 #include "app/front/FrontEnd.h"
 #include "app/front/FrontUI.h"
@@ -116,6 +118,17 @@ void App::StatusScreen(const std::string& title, const std::string& msg) {
 
 bool App::Init(const Config& cfg) {
     _Cfg = cfg;
+    // TS1(sims) language: set STR::DefaultLangCode before any content loads
+    if (!_Cfg.Language.empty()) {
+        namespace iff = FSO::Files::Formats::IFF::Chunks;
+        iff::STRLangCode code;
+        if (iff::STR::ParseLanguageCode(_Cfg.Language, code)) {
+            iff::STR::DefaultLangCode = code;
+            printf("[app] language: %s\n", iff::STR::LanguageSetNames[(int)code - 1]);
+        } else {
+            printf("[app] language: unknown '%s' (using English US)\n", _Cfg.Language.c_str());
+        }
+    }
     InstallLoadHooks(); // TS1(sims): step log + loading progress (front/AppFlow.cpp)
     _Str.Load(cfg.DataRoot + "/GameData");
     // the front end: EA intro, loading screen (the content boots behind it), neighbourhood (front/AppFlow.cpp)
@@ -268,10 +281,10 @@ void App::Frame(const AppInput& inRaw, double dtMs) {
     }
     switch (_Mode) {
         case Mode::Boot:
-            StatusScreen("sims", "Starting...");
+            StatusScreen("sims", LangText("Starting..."));
             break;
         case Mode::Error:
-            StatusScreen("sims", _Error + "  (START quits)");
+            StatusScreen("sims", _Error + "  " + LangText("(START quits)"));
             if (in.Down & BTN_START) QuitRequested = true;
             if ((in.TouchDown || (in.Down & BTN_A)) && _Front) { _Front->ReturnFromLot(-1, -1, false); _Mode = Mode::Front; }
             break;

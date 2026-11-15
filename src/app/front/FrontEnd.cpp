@@ -11,6 +11,7 @@
 #include "app/front/NeighbourhoodScreen.h"
 #include "app/front/TS1Font.h"
 #include "app/front/ResGraphics.h"
+#include "app/LangText.h"
 #include <algorithm>
 #include "files/LoadProgress.h"
 #include <cstdio>
@@ -99,7 +100,7 @@ bool FrontEnd::BootStep(std::string& label) {
         case 0:
             LoadProgress::Step("front: save area");
             _Setup.PlanAll();
-            label = _Setup.Busy() ? "Setting up the neighborhoods (first run)" : "";
+            label = _Setup.Busy() ? LangText("Setting up the neighborhoods (first run)") : "";
             _BootStep++;
             return true;
         case 1:
@@ -107,7 +108,7 @@ bool FrontEnd::BootStep(std::string& label) {
                 std::string f;
                 _Setup.Step(1536 * 1024, &f);
                 size_t sl = f.find_last_of('/');
-                label = "Copying " + (sl == std::string::npos ? f : f.substr(sl + 1));
+                label = LangText("Copying ") + (sl == std::string::npos ? f : f.substr(sl + 1));
                 return true;
             }
             _BootStep++;
@@ -226,7 +227,7 @@ void FrontEnd::Frame(const AppInput& in, double dtMs, Canvas& top, Canvas& botto
             if (!_Video.Update(vdt) || skip) { EndIntro(); _State = State::Loading; if (Music) Music("Load"); }
             _Video.Draw(top);
             bottom.Clear(RGBA(0, 0, 0));
-            TextCentered(bottom, TS1Size::S9, Rect(0, 222, bottom.Width, 14), "Tap to skip", RGBA(70, 70, 70));
+            TextCentered(bottom, TS1Size::S9, Rect(0, 222, bottom.Width, 14), LangText("Tap to skip"), RGBA(70, 70, 70));
             break;
         }
         case State::Loading: {
@@ -273,7 +274,7 @@ void FrontEnd::Frame(const AppInput& in, double dtMs, Canvas& top, Canvas& botto
                     "files are kept in " + UserDataSetup::FolderName(_RestoreOffer) + ".damaged).";
                 int ly = 60;
                 for (auto& l : Wrap(TS1Size::S11, msg, bottom.Width - 24)) { TextCentered(bottom, TS1Size::S11, Rect(0, ly, bottom.Width, 16), l, RGBA(200, 210, 240)); ly += 16; }
-                TextCentered(bottom, TS1Size::S11, Rect(0, ly + 16, bottom.Width, 16), "START quits", RGBA(200, 210, 240));
+                TextCentered(bottom, TS1Size::S11, Rect(0, ly + 16, bottom.Width, 16), LangText("START quits"), RGBA(200, 210, 240));
                 if (in.Down & BTN_A) { // (not a touch: restoring moves the damaged folder aside)
                     std::string err;
                     int idx = _RestoreOffer;
@@ -283,7 +284,7 @@ void FrontEnd::Frame(const AppInput& in, double dtMs, Canvas& top, Canvas& botto
                         _State = State::Loading; _BootStep = 3; _BootDone = false; // load it like at boot
                     } else { Error = "The neighborhood could not be restored: " + err; _RestoreOffer = -1; }
                 }
-            } else TextCentered(bottom, TS1Size::S11, Rect(0, 110, bottom.Width, 16), "START quits", RGBA(200, 210, 240));
+            } else TextCentered(bottom, TS1Size::S11, Rect(0, 110, bottom.Width, 16), LangText("START quits"), RGBA(200, 210, 240));
             if (in.Down & BTN_START) QuitRequested = true;
             break;
         }
