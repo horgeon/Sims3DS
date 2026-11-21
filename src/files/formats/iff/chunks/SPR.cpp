@@ -7,6 +7,8 @@
 #include "files/formats/iff/chunks/SPR.h"
 #include "files/formats/iff/IffFile.h"
 #include "files/FilePool.h"
+#include <limits>
+#include <stdexcept>
 
 namespace FSO { namespace Files { namespace Formats { namespace IFF { namespace Chunks {
 
@@ -39,28 +41,41 @@ void SPR::Read(IffFile* iff, st::Reader& stream)
         Frames.clear();
         if (version != 1001)
         {
+            if (spriteCount > (io.size() - io.pos()) / sizeof(uint32_t))
+                throw std::runtime_error("SPR offset table exceeds chunk");
             std::vector<uint32_t> offsetTable;
+            offsetTable.reserve(spriteCount);
             for (uint32_t i = 0; i < spriteCount; i++)
             {
                 offsetTable.push_back(io.ReadUInt32());
             }
+            const size_t frameDataStart = io.pos();
+            for (size_t i = 0; i < offsetTable.size(); i++)
+            {
+                if (offsetTable[i] < frameDataStart || offsetTable[i] >= io.size() ||
+                    (i + 1 < offsetTable.size() && offsetTable[i + 1] <= offsetTable[i]))
+                    throw std::runtime_error("invalid SPR frame offset");
+            }
             Offsets = offsetTable;
             for (uint32_t i = 0; i < spriteCount; i++)
             {
-                auto frame = new SPRFrame(this);
+                auto frame = std::make_unique<SPRFrame>(this);
                 io.Seek(st::SeekOrigin::Begin, offsetTable[i]);
-                auto guessedSize = ((i + 1 < offsetTable.size()) ? offsetTable[i + 1] : (uint32_t)stream.Length()) - offsetTable[i];
+                size_t frameEnd = i + 1 < offsetTable.size() ? offsetTable[i + 1] : io.size();
+                if (frameEnd - offsetTable[i] > std::numeric_limits<uint32_t>::max())
+                    throw std::runtime_error("SPR frame is too large");
+                auto guessedSize = (uint32_t)(frameEnd - offsetTable[i]);
                 frame->Read(version, io, guessedSize);
-                Frames.emplace_back(frame);
+                Frames.emplace_back(std::move(frame));
             }
         }
         else
         {
             while (io.HasMore())
             {
-                auto frame = new SPRFrame(this);
+                auto frame = std::make_unique<SPRFrame>(this);
                 frame->Read(version, io, 0);
-                Frames.emplace_back(frame);
+                Frames.emplace_back(std::move(frame));
             }
         }
     }
@@ -71,9 +86,12 @@ void SPRFrame::Read(uint32_t version, st::Reader& io, uint32_t guessedSize)
     // FIX(sims) memory: see SPR.h (frames of read-only files are read again from the file when decoded)
     bool onDisk = Parent != nullptr && Parent->SourceOffset >= 0 && Parent->ChunkParent != nullptr
                   && !Parent->ChunkParent->SourcePath.empty();
+    auto ensureAvailable = [&](uint32_t size) {
+        if (io.pos() > io.size() || size > io.size() - io.pos())
+            throw std::runtime_error("truncated SPR frame");
+    };
     auto lazy = [&](uint32_t size) {
-        size_t left = io.Length() > io.pos() ? (size_t)(io.Length() - io.pos()) : 0;
-        if (size > left) size = (uint32_t)left;
+        ensureAvailable(size);
         SrcOffset = Parent->SourceOffset + 76 + (int64_t)io.pos();
         SrcSize = size;
         io.Skip(size);
@@ -86,14 +104,24 @@ void SPRFrame::Read(uint32_t version, st::Reader& io, uint32_t guessedSize)
         auto size = io.ReadUInt32();
         this->Version = spriteFersion;
 
-        if (IffFile::RETAIN_CHUNK_DATA) ReadDeferred(1001, io);
+        ensureAvailable(size);
+        if (IffFile::RETAIN_CHUNK_DATA) {
+            auto data = io.ReadBytes(size);
+            st::Reader frameData(data, io.ByteOrder());
+            ReadDeferred(1001, frameData);
+        }
         else if (onDisk) lazy(size);
         else { ToDecode = io.ReadBytes(size); HasToDecode = true; }
     }
     else
     {
         this->Version = version;
-        if (IffFile::RETAIN_CHUNK_DATA) ReadDeferred(1000, io);
+        ensureAvailable(guessedSize);
+        if (IffFile::RETAIN_CHUNK_DATA) {
+            auto data = io.ReadBytes(guessedSize);
+            st::Reader frameData(data, io.ByteOrder());
+            ReadDeferred(1000, frameData);
+        }
         else if (onDisk) lazy(guessedSize);
         else { ToDecode = io.ReadBytes(guessedSize); HasToDecode = true; }
     }
@@ -216,7 +244,7 @@ void SPRFrame::Decode(st::Reader& io)
                             uint8_t a = palette->Colors[index].A;
                             for (int j=0; j < pxCount; j++){
                                 if (x >= 0 && x < Width && y >= 0 && y < Height) { // FIX(sims): palettised (see SPR.h)
-                                    size_t o = (size_t)(y * Width) + x;
+                                    size_t o = (size_t)y * (size_t)Width + (size_t)x;
                                     Index[o] = index; Alpha[o] = a;
                                 }
                                 x++;
@@ -228,7 +256,7 @@ void SPRFrame::Decode(st::Reader& io)
                             for (int j=0; j < pxCount; j++){
                                 auto index2 = io.ReadByte();
                                 if (x >= 0 && x < Width && y >= 0 && y < Height) { // FIX(sims): palettised (see SPR.h)
-                                    size_t o = (size_t)(y * Width) + x;
+                                    size_t o = (size_t)y * (size_t)Width + (size_t)x;
                                     Index[o] = index2; Alpha[o] = palette->Colors[index2].A;
                                 }
                                 x++;

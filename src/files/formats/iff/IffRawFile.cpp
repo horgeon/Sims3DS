@@ -34,10 +34,10 @@ bool IffRawFile::Parse(const std::vector<uint8_t>& data, std::string* error)
     Header.assign(data.begin(), data.begin() + 64);
     size_t off = 64;
     std::vector<uint8_t> rsmpData;
-    while (off + 76 <= data.size()) {
+    while (off <= data.size() && data.size() - off >= 76) {
         const uint8_t* h = data.data() + off;
         uint32_t size = BE32(h + 4);
-        if (size < 76 || off + size > data.size()) break;
+        if (size < 76 || size > data.size() - off) break;
         Chunk c;
         c.Type.assign((const char*)h, 4);
         c.ID = BE16(h + 8);
@@ -63,13 +63,20 @@ bool IffRawFile::Parse(const std::vector<uint8_t>& data, std::string* error)
         RsmpSizeField = LE32(rsmpData.data() + 12);
         uint32_t types = LE32(rsmpData.data() + 16);
         size_t p = 20;
-        for (uint32_t t = 0; t < types && p + 8 <= rsmpData.size(); t++) {
+        for (uint32_t t = 0; t < types; t++) {
+            if (p > rsmpData.size() || rsmpData.size() - p < 8) break;
             std::string type(4, ' ');
             for (int k = 0; k < 4; k++) type[k] = (char)rsmpData[p + 3 - k];
             uint32_t count = LE32(rsmpData.data() + p + 4);
             p += 8;
             std::vector<uint16_t> ids;
-            for (uint32_t i = 0; i < count && p < rsmpData.size(); i++) {
+            bool complete = true;
+            for (uint32_t i = 0; i < count; i++) {
+                size_t fixedSize = RsmpVersion == 0 ? 8 : 10;
+                if (p > rsmpData.size() || rsmpData.size() - p < fixedSize) {
+                    complete = false;
+                    break;
+                }
                 p += 4; // offset
                 uint32_t id;
                 if (RsmpVersion == 0) { id = LE16(rsmpData.data() + p); p += 2; }
@@ -78,15 +85,34 @@ bool IffRawFile::Parse(const std::vector<uint8_t>& data, std::string* error)
                 if (RsmpVersion == 0) {
                     size_t s = p;
                     while (p < rsmpData.size() && rsmpData[p] != 0) p++;
+                    if (p == rsmpData.size()) {
+                        complete = false;
+                        break;
+                    }
                     p++;
-                    if (((p - s) & 1) != 0) p++;
+                    if (((p - s) & 1) != 0) {
+                        if (p == rsmpData.size()) {
+                            complete = false;
+                            break;
+                        }
+                        p++;
+                    }
                 } else {
-                    uint8_t len = p < rsmpData.size() ? rsmpData[p] : 0;
-                    p += 1 + len;
+                    if (p == rsmpData.size()) {
+                        complete = false;
+                        break;
+                    }
+                    uint8_t len = rsmpData[p++];
+                    if (len > rsmpData.size() - p) {
+                        complete = false;
+                        break;
+                    }
+                    p += len;
                 }
                 ids.push_back((uint16_t)id);
             }
             RsmpOrder.push_back(std::make_pair(type, ids));
+            if (!complete) break;
         }
     }
     return true;

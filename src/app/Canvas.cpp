@@ -158,11 +158,10 @@ void Canvas::BlitScaled(const uint32_t* src, int sw, int sh, const Rect& dst, bo
         const uint32_t* r0 = src + (size_t)sy0 * sw;
         const uint32_t* r1 = src + (size_t)sy1 * sw;
         uint32_t* out = &Px[(size_t)dy * Width];
-        const int* c0 = cx0.data() - dst.X;
-        const int* c1 = cx1.data() - dst.X;
         if (!blend) {
             for (int dx = x0; dx < x1; dx++) {
-                uint32_t a = r0[c0[dx]], b = r0[c1[dx]], c = r1[c0[dx]], d = r1[c1[dx]];
+                int sx0 = cx0[(size_t)(dx - dst.X)], sx1 = cx1[(size_t)(dx - dst.X)];
+                uint32_t a = r0[sx0], b = r0[sx1], c = r1[sx0], d = r1[sx1];
                 // average 4 pixels per channel: R and B together in one register, G separately
                 uint32_t rb = ((a & 0x00FF00FF) + (b & 0x00FF00FF) + (c & 0x00FF00FF) + (d & 0x00FF00FF)) >> 2;
                 uint32_t g = ((a & 0x0000FF00) + (b & 0x0000FF00) + (c & 0x0000FF00) + (d & 0x0000FF00)) >> 2;
@@ -171,7 +170,8 @@ void Canvas::BlitScaled(const uint32_t* src, int sw, int sh, const Rect& dst, bo
             continue;
         }
         for (int dx = x0; dx < x1; dx++) {
-            uint32_t px[4] = { r0[c0[dx]], r0[c1[dx]], r1[c0[dx]], r1[c1[dx]] };
+            int sx0 = cx0[(size_t)(dx - dst.X)], sx1 = cx1[(size_t)(dx - dst.X)];
+            uint32_t px[4] = { r0[sx0], r0[sx1], r1[sx0], r1[sx1] };
             uint32_t sa = 0, sr = 0, sg = 0, sb = 0;
             for (auto p : px) { uint32_t al = p >> 24; sa += al; sr += (p & 255) * al; sg += ((p >> 8) & 255) * al; sb += ((p >> 16) & 255) * al; }
             if (sa == 0) continue;
