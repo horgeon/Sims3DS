@@ -202,6 +202,16 @@ void AudioMixer::SetLooping(int voice, bool loop) {
     if (v != nullptr) v->Loop = loop;
 }
 
+bool AudioMixer::SetSuspended(bool suspended) {
+    Guard g(*this);
+    bool ok = true;
+    for (auto& vp : _Voices) {
+        Voice* v = vp.get();
+        if (v->Active && v->Stream && !v->Stream->SetSuspended(suspended)) ok = false;
+    }
+    return ok;
+}
+
 double AudioMixer::Position(int voice) const {
     Guard g(*this);
     Voice* v = Find(voice);

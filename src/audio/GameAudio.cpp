@@ -217,8 +217,14 @@ bool GameAudio::FilePlaying() const {
     return _FileVoice != 0 && _Mixer && _Mixer->IsPlaying(_FileVoice);
 }
 
-void GameAudio::SetSuspended(bool suspended) {
-    if (_Backend) _Backend->SetSuspended(suspended);
+bool GameAudio::SetSuspended(bool suspended) {
+    if (suspended) {
+        if (_Backend) _Backend->SetSuspended(true);
+        return !_Mixer || _Mixer->SetSuspended(true);
+    }
+    bool ok = !_Mixer || _Mixer->SetSuspended(false);
+    if (_Backend) _Backend->SetSuspended(false);
+    return ok;
 }
 
 }

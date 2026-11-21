@@ -88,8 +88,8 @@ public:
     void SetVolumes(float sfx, float music, float voice);
     /// Leaving/unloading a lot: stops every object's sound (radios, TVs, loops) — their VM is going away.
     void LeaveLot();
-    /// Pauses everything (HOME menu, sleep). The game's own pause is handled by the VM (VM::Update).
-    void SetSuspended(bool suspended);
+    /// Pauses everything (HOME menu, sleep), releasing streamed files until resume. Returns false if a stream failed.
+    bool SetSuspended(bool suspended);
 
     /// Log of every event played / note started (host tools); empty = off.
     std::function<void(const std::string&)> Log;

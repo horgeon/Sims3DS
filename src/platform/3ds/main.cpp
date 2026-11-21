@@ -190,9 +190,15 @@ static aptHookCookie g_aptCookie;
 static void OnAptEvent(APT_HookType hook, void*) {
     switch (hook) {
     case APTHOOK_ONSUSPEND: case APTHOOK_ONSLEEP:
-        simaudio::GameAudio::Get().SetSuspended(true); fflush(stdout); break;
+        if (!simaudio::GameAudio::Get().SetSuspended(true))
+            printf("apt: could not fully suspend audio streams\n");
+        FSO::Files::FilePool::CloseAll();
+        fflush(stdout);
+        break;
     case APTHOOK_ONRESTORE: case APTHOOK_ONWAKEUP:
-        simaudio::GameAudio::Get().SetSuspended(false); break;
+        if (!simaudio::GameAudio::Get().SetSuspended(false))
+            printf("apt: could not restore audio streams\n");
+        break;
     // FIX(sims) SAVE: closed from the HOME menu / power button. APT hooks run inside aptMainLoop() / aptExit() on the
     // main thread, and every save is a blocking call on that thread (files/SafeFile.h: .new written, flushed, closed,
     // then renamed), so no save is ever half-done here; give back the read handles and push the log out.
