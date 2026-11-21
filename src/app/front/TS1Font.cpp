@@ -19,8 +19,8 @@ bool TS1Font::Load(const std::vector<uint8_t>& d) {
     _Atlas.clear();
     if (d.size() < 64 || d[0] != 'F' || d[1] != 'N' || d[2] != 'T' || d[3] != 'F') return false;
     int count = U16(d.data() + 10);
-    uint32_t atlasOff = U32(d.data() + 28);
-    if (32 + (size_t)count * 11 > d.size() || atlasOff + 16 > d.size()) return false;
+    size_t atlasOff = U32(d.data() + 28);
+    if (32 + (size_t)count * 11 > d.size() || atlasOff > d.size() || d.size() - atlasOff < 16) return false;
     for (auto& g : _G) g = Glyph();
     int bottom = 0;
     for (int i = 0; i < count; i++) {
@@ -36,7 +36,8 @@ bool TS1Font::Load(const std::vector<uint8_t>& d) {
     _AtlasW = U16(d.data() + atlasOff + 4);
     _AtlasH = U16(d.data() + atlasOff + 6);
     size_t bytes = ((size_t)_AtlasW * _AtlasH + 1) / 2;
-    if (atlasOff + 16 + bytes > d.size()) bytes = d.size() - atlasOff - 16;
+    size_t available = d.size() - atlasOff - 16;
+    if (bytes > available) bytes = available;
     _Atlas.assign(d.begin() + atlasOff + 16, d.begin() + atlasOff + 16 + bytes);
     // line height: the cap/descender extent of the face (e.g. 12 pt -> 17 px)
     _Line = bottom;

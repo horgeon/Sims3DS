@@ -16,8 +16,23 @@
 #include <stdexcept>
 #include <cstdio>
 #include <cerrno>
+#include <limits>
 
 namespace st {
+
+inline size_t CheckedPosition(size_t base, int64_t offset) {
+    if (base > static_cast<size_t>(std::numeric_limits<int64_t>::max()))
+        throw std::runtime_error("seek position overflow");
+    const int64_t signedBase = static_cast<int64_t>(base);
+    if ((offset > 0 && signedBase > std::numeric_limits<int64_t>::max() - offset) ||
+        (offset < 0 && signedBase < std::numeric_limits<int64_t>::min() - offset))
+        throw std::runtime_error("seek position overflow");
+    const int64_t result = signedBase + offset;
+    if (result < 0) throw std::runtime_error("seek before beginning");
+    if (static_cast<uint64_t>(result) > std::numeric_limits<size_t>::max())
+        throw std::runtime_error("seek position overflow");
+    return static_cast<size_t>(result);
+}
 
 // FSO.Files.Utils.ByteOrder (BIG_ENDIAN / LITTLE_ENDIAN are glibc macros, so
 // the enumerators are spelled Big / Little here).
@@ -60,13 +75,25 @@ public:
                      p_+=4; return v; }
     int32_t  s32() { return (int32_t)u32(); }
 
-    std::vector<uint8_t> bytes(size_t k) { need(k); std::vector<uint8_t> v(d_+p_, d_+p_+k); p_+=k; return v; }
-    const uint8_t* raw(size_t k) { need(k); const uint8_t* r = d_+p_; p_+=k; return r; }
+    std::vector<uint8_t> bytes(size_t k) {
+        need(k);
+        std::vector<uint8_t> v;
+        if (k != 0) v.assign(d_ + p_, d_ + p_ + k);
+        p_ += k;
+        return v;
+    }
+    const uint8_t* raw(size_t k) {
+        need(k);
+        const uint8_t* r = d_ == nullptr ? nullptr : d_ + p_;
+        p_ += k;
+        return r;
+    }
 
     // Fixed-length C string field; optionally trim trailing NULs.
     std::string cstr(size_t len, bool trim = true) {
         need(len);
-        std::string s((const char*)(d_+p_), len);
+        std::string s;
+        if (len != 0) s.assign(reinterpret_cast<const char*>(d_ + p_), len);
         p_ += len;
         if (trim) { size_t z = s.find('\0'); if (z != std::string::npos) s.resize(z); }
         return s;
@@ -77,7 +104,7 @@ public:
     // ------------------------------------------------------------------
 
     /// More to read in this stream?  (C#: Stream.Position < Stream.Length - 1)
-    bool HasMore() const { return p_ + 1 < n_; }
+    bool HasMore() const { return p_ < n_ && n_ - p_ > 1; }
 
     /// Skips a number of bytes in the current stream, starting from the current position.
     void Skip(int64_t numBytes) { Seek(SeekOrigin::Current, numBytes); }
@@ -85,15 +112,13 @@ public:
     /// Seeks in the current stream. Like a MemoryStream, seeking beyond the end is
     /// permitted (subsequent reads fail); seeking before the start throws.
     void Seek(SeekOrigin origin, int64_t offset) {
-        int64_t base = 0;
+        size_t base = 0;
         switch (origin) {
             case SeekOrigin::Begin:   base = 0; break;
-            case SeekOrigin::Current: base = (int64_t)p_; break;
-            case SeekOrigin::End:     base = (int64_t)n_; break;
+            case SeekOrigin::Current: base = p_; break;
+            case SeekOrigin::End:     base = n_; break;
         }
-        int64_t np = base + offset;
-        if (np < 0) throw std::runtime_error("seek before beginning");
-        p_ = (size_t)np;
+        p_ = CheckedPosition(base, offset);
     }
 
     int64_t Position() const { return (int64_t)p_; }
@@ -102,14 +127,14 @@ public:
     /// Reads a variable length unsigned integer from the current stream.
     uint32_t ReadVarLen() {
         uint32_t result = 0;
-        int shift = 0;
-        uint8_t read = 0x80;
-        while ((read & 0x80) > 0) {
-            read = ReadByte();
-            result |= (uint32_t)((read & 0x7F) << shift);
-            shift += 7;
+        for (unsigned shift = 0; shift <= 28; shift += 7) {
+            uint8_t read = ReadByte();
+            if (shift == 28 && (read & 0xF0) != 0)
+                throw std::runtime_error("variable length integer overflow");
+            result |= static_cast<uint32_t>(read & 0x7F) << shift;
+            if ((read & 0x80) == 0) return result;
         }
-        return result;
+        throw std::runtime_error("variable length integer too long");
     }
 
     uint16_t ReadUInt16() { return u16(); }
@@ -134,9 +159,13 @@ public:
     /// Reads a number of bytes from the current stream. Like BinaryReader.ReadBytes this
     /// returns fewer bytes (not an error) when the end of the stream is reached.
     std::vector<uint8_t> ReadBytes(size_t num) {
-        size_t avail = (p_ < n_) ? (n_ - p_) : 0;
+        size_t avail = (p_ <= n_) ? (n_ - p_) : 0;
         if (num > avail) num = avail;
-        std::vector<uint8_t> v(d_ + p_, d_ + p_ + num);
+        std::vector<uint8_t> v;
+        if (num != 0) {
+            if (d_ == nullptr) throw std::runtime_error("read from null buffer");
+            v.assign(d_ + p_, d_ + p_ + num);
+        }
         p_ += num;
         return v;
     }
@@ -172,12 +201,7 @@ public:
     /// Reads a pascal string from the current stream (BinaryReader.ReadString:
     /// 7-bit encoded length prefix followed by UTF-8 bytes).
     std::string ReadVariableLengthPascalString() {
-        uint32_t length = 0; int shift = 0; uint8_t b;
-        do {
-            b = ReadByte();
-            length |= (uint32_t)(b & 0x7F) << shift;
-            shift += 7;
-        } while ((b & 0x80) != 0 && shift < 35);
+        uint32_t length = ReadVarLen();
         auto bytes = ReadBytes(length);
         return std::string(bytes.begin(), bytes.end());
     }
@@ -202,10 +226,13 @@ public:
     /// Sets a mark at the current position in the stream.
     void Mark() { mark_ = p_; }
     /// Seeks in the current stream from the current mark plus the number of bytes.
-    void SeekFromMark(int64_t numBytes) { Seek(SeekOrigin::Begin, (int64_t)mark_ + numBytes); }
+    void SeekFromMark(int64_t numBytes) { p_ = CheckedPosition(mark_, numBytes); }
 
 private:
-    void need(size_t k) const { if (p_ + k > n_ || p_ > n_) throw std::runtime_error("read past end"); }
+    void need(size_t k) const {
+        if (p_ > n_ || k > n_ - p_ || (k != 0 && d_ == nullptr))
+            throw std::runtime_error("read past end");
+    }
     const uint8_t* d_;
     size_t n_, p_;
     Endian e_;
@@ -222,18 +249,16 @@ public:
     void ByteOrder(Endian e) { e_ = e; }
     Endian ByteOrder() const { return e_; }
 
-    bool HasMore() const { return p_ + 1 < buf_.size(); }
+    bool HasMore() const { return p_ < buf_.size() && buf_.size() - p_ > 1; }
     void Skip(int64_t numBytes) { Seek(SeekOrigin::Current, numBytes); }
     void Seek(SeekOrigin origin, int64_t offset) {
-        int64_t base = 0;
+        size_t base = 0;
         switch (origin) {
             case SeekOrigin::Begin:   base = 0; break;
-            case SeekOrigin::Current: base = (int64_t)p_; break;
-            case SeekOrigin::End:     base = (int64_t)buf_.size(); break;
+            case SeekOrigin::Current: base = p_; break;
+            case SeekOrigin::End:     base = buf_.size(); break;
         }
-        int64_t np = base + offset;
-        if (np < 0) throw std::runtime_error("seek before beginning");
-        p_ = (size_t)np;
+        p_ = CheckedPosition(base, offset);
         if (p_ > buf_.size()) buf_.resize(p_);
     }
     int64_t Position() const { return (int64_t)p_; }

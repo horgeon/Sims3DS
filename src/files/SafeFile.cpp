@@ -153,24 +153,26 @@ bool SafeFile::IffComplete(const std::vector<uint8_t>& d, const char* requiredTy
     std::vector<uint32_t> starts;
     bool hasRequired = requiredType == nullptr;
     size_t off = 64, rsmpAt = 0, rsmpSize = 0;
-    while (off + 76 <= d.size()) {
+    while (off <= d.size() && d.size() - off >= 76) {
         const uint8_t* h = d.data() + off;
         if (!TypeLike(h)) break; // filler after the last chunk
         uint32_t size = BE32(h + 4);
         if (size < 76) break;
-        if (off + size > d.size()) return false; // the last chunk is cut: truncated file
+        if (size > d.size() - off) return false; // the last chunk is cut: truncated file
         if (requiredType && std::memcmp(h, requiredType, 4) == 0) hasRequired = true;
         if (std::memcmp(h, "rsmp", 4) == 0) { rsmpAt = off; rsmpSize = size; }
         starts.push_back((uint32_t)off);
         off += size;
     }
     if (starts.empty() || !hasRequired) return false;
-    if (off + 8 <= d.size() && TypeLike(d.data() + off) && BE32(d.data() + off + 4) >= 76) return false; // a cut chunk header
+    if (off <= d.size() && d.size() - off >= 8 && TypeLike(d.data() + off) &&
+        BE32(d.data() + off + 4) >= 76) return false; // a cut chunk header
     // the resource map lists every chunk: an entry past the end = the file lost its tail at a chunk boundary
     uint32_t mapOff = BE32(d.data() + 60);
     if (mapOff != 0) {
         // (some shipped houses have junk there and no map: House00 / House11 say 960 MB)
-        if ((size_t)mapOff + 76 > d.size() && mapOff < (64u << 20)) return false;
+        size_t mapPosition = (size_t)mapOff;
+        if ((mapPosition > d.size() || d.size() - mapPosition < 76) && mapOff < (64u << 20)) return false;
         if (rsmpAt == mapOff && rsmpSize >= 76 + 20 && std::memcmp(d.data() + rsmpAt + 76 + 8, "pmsr", 4) == 0) {
             const uint8_t* r = d.data() + rsmpAt + 76;
             size_t n = rsmpSize - 76, p = 20;
@@ -181,7 +183,8 @@ bool SafeFile::IffComplete(const std::vector<uint8_t>& d, const char* requiredTy
                 for (uint32_t i = 0; i < count; i++) {
                     if (p + (version == 0 ? 8 : 10) > n) return true; // odd map: the chunk walk decides
                     uint32_t eo = LE32(r + p);
-                    if ((size_t)eo + 76 > d.size()) return false;
+                    size_t entryOffset = (size_t)eo;
+                    if (entryOffset > d.size() || d.size() - entryOffset < 76) return false;
                     p += version == 0 ? 8 : 10;
                     if (version == 0) { size_t z = p; while (z < n && r[z] != 0) z++; p += ((z - p + 1) + 1) & ~(size_t)1; }
                     else if (p < n) p += 1 + r[p];

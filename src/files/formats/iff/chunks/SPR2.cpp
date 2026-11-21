@@ -8,6 +8,8 @@
 #include "files/formats/iff/chunks/SPR2.h"
 #include "files/formats/iff/chunks/SPR2FrameEncoder.h"
 #include "files/formats/iff/IffFile.h"
+#include <limits>
+#include <stdexcept>
 
 namespace FSO { namespace Files { namespace Formats { namespace IFF { namespace Chunks {
 
@@ -24,39 +26,55 @@ void SPR2::Read(IffFile* iff, st::Reader& stream)
         {
             spriteCount = io.ReadUInt32();
             DefaultPaletteID = io.ReadUInt32();
+            if (spriteCount > (io.size() - io.pos()) / sizeof(uint32_t))
+                throw std::runtime_error("SPR2 offset table exceeds chunk");
             std::vector<uint32_t> offsetTable(spriteCount);
             for (uint32_t i = 0; i < spriteCount; i++)
             {
                 offsetTable[i] = io.ReadUInt32();
+            }
+            const size_t frameDataStart = io.pos();
+            for (size_t i = 0; i < offsetTable.size(); i++)
+            {
+                if (offsetTable[i] < frameDataStart || offsetTable[i] >= io.size() ||
+                    (i + 1 < offsetTable.size() && offsetTable[i + 1] <= offsetTable[i]))
+                    throw std::runtime_error("invalid SPR2 frame offset");
             }
 
             Frames.clear();
             Frames.reserve(spriteCount);
             for (uint32_t i = 0; i < spriteCount; i++)
             {
-                auto frame = new SPR2Frame(this);
+                auto frame = std::make_unique<SPR2Frame>(this);
                 frame->KeepCompressed = SourceOffset >= 0; // TS1(sims): object sprites (DropDecoded)
-                Frames.emplace_back(frame);
+                Frames.emplace_back(std::move(frame));
+                auto* framePtr = Frames.back().get();
                 io.Seek(st::SeekOrigin::Begin, offsetTable[i]);
 
-                auto guessedSize = ((i + 1 < offsetTable.size()) ? offsetTable[i + 1] : (uint32_t)stream.Length()) - offsetTable[i];
+                size_t frameEnd = i + 1 < offsetTable.size() ? offsetTable[i + 1] : io.size();
+                if (frameEnd - offsetTable[i] > std::numeric_limits<uint32_t>::max())
+                    throw std::runtime_error("SPR2 frame is too large");
+                auto guessedSize = (uint32_t)(frameEnd - offsetTable[i]);
 
-                frame->Read(version, io, guessedSize);
+                framePtr->Read(version, io, guessedSize);
             }
         }
         else if (version == 1001)
         {
             DefaultPaletteID = io.ReadUInt32();
             spriteCount = io.ReadUInt32();
+            if (spriteCount > (io.size() - io.pos()) / 8)
+                throw std::runtime_error("SPR2 frame headers exceed chunk");
 
             Frames.clear();
             Frames.reserve(spriteCount);
             for (uint32_t i = 0; i < spriteCount; i++)
             {
-                auto frame = new SPR2Frame(this);
+                auto frame = std::make_unique<SPR2Frame>(this);
                 frame->KeepCompressed = SourceOffset >= 0; // TS1(sims): object sprites (DropDecoded)
-                Frames.emplace_back(frame);
-                frame->Read(version, io, 0);
+                auto* framePtr = frame.get();
+                Frames.emplace_back(std::move(frame));
+                framePtr->Read(version, io, 0);
             }
         }
     }
@@ -96,9 +114,12 @@ void SPR2Frame::Read(uint32_t version, st::Reader& io, uint32_t guessedSize)
     // FIX(sims): see SPR2Frame::SrcOffset
     bool onDisk = KeepCompressed && Parent != nullptr && Parent->SourceOffset >= 0 && Parent->ChunkParent != nullptr
                   && !Parent->ChunkParent->SourcePath.empty();
+    auto ensureAvailable = [&](uint32_t size) {
+        if (io.pos() > io.size() || size > io.size() - io.pos())
+            throw std::runtime_error("truncated SPR2 frame");
+    };
     auto lazy = [&](uint32_t size) {
-        size_t left = io.Length() > io.pos() ? (size_t)(io.Length() - io.pos()) : 0;
-        if (size > left) size = (uint32_t)left;
+        ensureAvailable(size);
         SrcOffset = Parent->SourceOffset + 76 + (int64_t)io.pos();
         SrcSize = size;
         io.Skip(size);
@@ -109,12 +130,22 @@ void SPR2Frame::Read(uint32_t version, st::Reader& io, uint32_t guessedSize)
         auto spriteVersion = io.ReadUInt32();
         (void)spriteVersion;
         auto spriteSize = io.ReadUInt32();
-        if (IffFile::RETAIN_CHUNK_DATA) ReadDeferred(1001, io);
+        ensureAvailable(spriteSize);
+        if (IffFile::RETAIN_CHUNK_DATA) {
+            auto data = io.ReadBytes(spriteSize);
+            st::Reader frameData(data, io.ByteOrder());
+            ReadDeferred(1001, frameData);
+        }
         else if (onDisk) lazy(spriteSize);
         else { ToDecode = io.ReadBytes(spriteSize); HasToDecode = true; }
     } else
     {
-        if (IffFile::RETAIN_CHUNK_DATA) ReadDeferred(1000, io);
+        ensureAvailable(guessedSize);
+        if (IffFile::RETAIN_CHUNK_DATA) {
+            auto data = io.ReadBytes(guessedSize);
+            st::Reader frameData(data, io.ByteOrder());
+            ReadDeferred(1000, frameData);
+        }
         else if (onDisk) lazy(guessedSize);
         else { ToDecode = io.ReadBytes(guessedSize); HasToDecode = true; }
     }
@@ -226,13 +257,15 @@ void SPR2Frame::Write(st::Writer& io)
 
 void SPR2Frame::Decode(st::Reader& io)
 {
-    int32_t y = 0;
+    int64_t y = 0;
     bool endmarker = false;
 
     bool hasPixels = (this->Flags & 0x01) == 0x01;
     bool hasZBuffer = (this->Flags & 0x02) == 0x02;
     bool hasAlpha = (this->Flags & 0x04) == 0x04;
 
+    if (this->Width < 0 || this->Height < 0)
+        throw std::runtime_error("negative SPR2 frame dimensions");
     size_t numPixels = (size_t)this->Width * this->Height;
     (void)hasAlpha; // FIX(sims): alpha lives in AlphaData whenever there are pixels (see SPR2.h)
     std::vector<Color>().swap(this->PixelData);
@@ -252,8 +285,15 @@ void SPR2Frame::Decode(st::Reader& io)
     palette->References++;
     PalColors = palette->Colors.data();
 
+    auto pixelOffset = [this](int64_t row, int64_t col, size_t& offset) {
+        if (row < 0 || row >= this->Height || col < 0 || col >= this->Width) return false;
+        offset = (size_t)row * (size_t)this->Width + (size_t)col;
+        return true;
+    };
+
     while (!endmarker)
     {
+        if (y >= this->Height) break;
         auto marker = io.ReadUInt16();
         int32_t command = marker >> 13;
         int32_t count = marker & 0x1FFF;
@@ -266,7 +306,7 @@ void SPR2Frame::Decode(st::Reader& io)
                 int32_t bytes = count;
                 bytes -= 2;
 
-                int32_t x = 0;
+                int64_t x = 0;
 
                 while (bytes > 0)
                 {
@@ -296,13 +336,15 @@ void SPR2Frame::Decode(st::Reader& io)
                                 }
                                 //this mode draws the transparent colour as solid for some reason.
                                 //fixes backdrop theater
-                                size_t offset = (size_t)(y * Width) + x;
+                                size_t offset;
                                 //C# indexes PixelData/ZBufferData unconditionally here (NRE if absent); guarded.
-                                if (hasPixels) {
-                                    this->AlphaData[offset] = pxA;
-                                    this->PalData[offset] = pxValue;
+                                if (pixelOffset(y, x, offset)) {
+                                    if (hasPixels) {
+                                        this->AlphaData[offset] = pxA;
+                                        this->PalData[offset] = pxValue;
+                                    }
+                                    if (hasZBuffer) this->ZBufferData[offset] = zValue;
                                 }
-                                if (hasZBuffer) this->ZBufferData[offset] = zValue;
                                 x++;
                             }
                             if (pxWithAlpha)
@@ -318,13 +360,15 @@ void SPR2Frame::Decode(st::Reader& io)
                         case 0x03:
                             for (int32_t col = 0; col < pxCount; col++)
                             {
-                                size_t offset = (size_t)(y * Width) + x;
-                                if (hasPixels) {
-                                    this->AlphaData[offset] = 0;
-                                    this->PalData[offset] = (uint8_t)TransparentColorIndex;
-                                }
-                                if (hasZBuffer){
-                                    this->ZBufferData[offset] = 255;
+                                size_t offset;
+                                if (pixelOffset(y, x, offset)) {
+                                    if (hasPixels) {
+                                        this->AlphaData[offset] = 0;
+                                        this->PalData[offset] = (uint8_t)TransparentColorIndex;
+                                    }
+                                    if (hasZBuffer){
+                                        this->ZBufferData[offset] = 255;
+                                    }
                                 }
                                 x++;
                             }
@@ -334,7 +378,7 @@ void SPR2Frame::Decode(st::Reader& io)
                             {
                                 auto pxIndex = io.ReadByte();
                                 bytes--;
-                                size_t offset = (size_t)(y * Width) + x;
+                                size_t offset;
                                 uint8_t pxA = palette->Colors[pxIndex].A;
                                 uint8_t z = 0;
 
@@ -344,13 +388,15 @@ void SPR2Frame::Decode(st::Reader& io)
                                     pxColor.A = 0;
                                     z = 255;
                                 }*/
-                                if (hasPixels) {
-                                    this->AlphaData[offset] = pxA;
-                                    this->PalData[offset] = pxIndex;
-                                }
-                                if (hasZBuffer)
-                                {
-                                    this->ZBufferData[offset] = z;
+                                if (pixelOffset(y, x, offset)) {
+                                    if (hasPixels) {
+                                        this->AlphaData[offset] = pxA;
+                                        this->PalData[offset] = pxIndex;
+                                    }
+                                    if (hasZBuffer)
+                                    {
+                                        this->ZBufferData[offset] = z;
+                                    }
                                 }
                                 x++;
                             }
@@ -366,9 +412,8 @@ void SPR2Frame::Decode(st::Reader& io)
                 /** If row isnt filled in, the rest is transparent **/
                 while (x < Width)
                 {
-                    size_t offset = (size_t)(y * Width) + x;
-                    if (hasZBuffer)
-                    {
+                    size_t offset;
+                    if (pixelOffset(y, x, offset) && hasZBuffer) {
                         this->ZBufferData[offset] = 255;
                     }
                     x++;
@@ -380,9 +425,11 @@ void SPR2Frame::Decode(st::Reader& io)
             case 0x04:
                 for (int32_t row = 0; row < count; row++)
                 {
+                    int64_t targetY = y + row;
+                    if (targetY < 0 || targetY >= this->Height) continue;
                     for (int32_t col = 0; col < Width; col++)
                     {
-                        size_t offset = (size_t)((y+row) * Width) + col;
+                        size_t offset = (size_t)targetY * (size_t)Width + (size_t)col;
                         if (hasPixels)
                         {
                             this->AlphaData[offset] = 0;

@@ -8,6 +8,7 @@
 #include "files/FilePool.h"
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include "files/formats/iff/PIFFRegistry.h"
 #include "files/Hash.h"
 #include <stdexcept>
@@ -267,6 +268,8 @@ struct RsmpEntry { std::string Type; uint32_t Offset; uint16_t ID, Flags; std::s
 void IffFile::ReadFromFile(const std::string& path, int64_t base, uint32_t length, bool deferHeavy, const char* onlyType)
 {
     using FSO::Files::FilePool;
+    if (base < 0 || (uint64_t)base > (uint64_t)std::numeric_limits<int64_t>::max() - length)
+        throw std::runtime_error("invalid IFF file range");
     std::string err;
     auto readAt = [&](uint32_t off, uint32_t len, std::vector<uint8_t>& out) {
         if (!FilePool::ReadAt(path, base + off, len, out, &err)) throw std::runtime_error("Could not read " + err);
@@ -337,7 +340,11 @@ void IffFile::ReadFromFile(const std::string& path, int64_t base, uint32_t lengt
     for (size_t i = 0; i < entries.size(); i++) {
         uint32_t next = i + 1 < entries.size() ? entries[i + 1].Offset : length;
         if (rsmpOff > entries[i].Offset && rsmpOff < next) next = rsmpOff;
-        if (entries[i].Offset < 64 || next <= entries[i].Offset + 76 - 1 || next > length) { ok = false; break; }
+        if (entries[i].Offset < 64 || entries[i].Offset > length || length - entries[i].Offset < 76 ||
+            next <= entries[i].Offset || next - entries[i].Offset < 76 || next > length) {
+            ok = false;
+            break;
+        }
         if (i + 1 < entries.size() && entries[i + 1].Offset == entries[i].Offset) { ok = false; break; }
         entries[i].Bound = next - entries[i].Offset;
     }
@@ -361,7 +368,7 @@ void IffFile::ReadFromFile(const std::string& path, int64_t base, uint32_t lengt
     for (auto& e : entries) {
         if (types.find(e.Type) == types.end() || heavy(e.Type)) continue;
         uint32_t s = e.Offset, en = e.Offset + e.Bound;
-        if (!runs.empty() && s <= runs.back().End + 8192) runs.back().End = en;
+        if (!runs.empty() && (s <= runs.back().End || s - runs.back().End <= 8192)) runs.back().End = en;
         else runs.push_back({ s, en, {} });
     }
     for (auto& r : runs) {
