@@ -35,10 +35,12 @@ public:
     int Rate() const override { return _Info.Rate; }
     int Read(int16_t* out, int maxFrames) override;
     bool Rewind() override;
+    bool SetSuspended(bool suspended) override;
     double DurationSeconds() const override;
 private:
     WavStream() {}
     FILE* _F = nullptr;
+    std::string _Path;
     long _Base = 0;      // file offset of the RIFF header
     WavInfo _Info;
     size_t _Pos = 0;     // bytes of sample data consumed

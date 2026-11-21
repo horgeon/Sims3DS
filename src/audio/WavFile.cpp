@@ -65,6 +65,7 @@ std::unique_ptr<WavStream> WavStream::Open(const std::string& path, long offset,
     size_t got = std::fread(hdr, 1, sizeof hdr, f);
     std::unique_ptr<WavStream> s(new WavStream());
     if (!ParseWavHeader(hdr, got, s->_Info)) { std::fclose(f); return nullptr; }
+    s->_Path = path;
     if (length > 0 && s->_Info.DataOffset + s->_Info.DataBytes > (size_t)length)
         s->_Info.DataBytes = (size_t)length > s->_Info.DataOffset ? (size_t)length - s->_Info.DataOffset : 0;
     if (length <= 0) {
@@ -83,7 +84,33 @@ WavStream::~WavStream() { if (_F) std::fclose(_F); }
 
 bool WavStream::Rewind() {
     _Pos = 0;
-    return _F && std::fseek(_F, _Base + (long)_Info.DataOffset, SEEK_SET) == 0;
+    if (!_F) _F = std::fopen(_Path.c_str(), "rb");
+    if (!_F) return false;
+    if (std::fseek(_F, _Base + (long)_Info.DataOffset, SEEK_SET) != 0) {
+        std::fclose(_F);
+        _F = nullptr;
+        return false;
+    }
+    return true;
+}
+
+bool WavStream::SetSuspended(bool suspended) {
+    if (suspended) {
+        if (_F) {
+            std::fclose(_F);
+            _F = nullptr;
+        }
+        return true;
+    }
+    if (_F) return true;
+    _F = std::fopen(_Path.c_str(), "rb");
+    if (!_F) return false;
+    if (std::fseek(_F, _Base + (long)_Info.DataOffset + (long)_Pos, SEEK_SET) != 0) {
+        std::fclose(_F);
+        _F = nullptr;
+        return false;
+    }
+    return true;
 }
 
 double WavStream::DurationSeconds() const {

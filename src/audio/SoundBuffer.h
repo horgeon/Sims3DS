@@ -35,6 +35,8 @@ public:
     virtual int Read(int16_t* out, int maxFrames) = 0;
     /// Back to the start (for looping). False if not possible.
     virtual bool Rewind() = 0;
+    /// Releases an underlying file while suspended and restores it on resume.
+    virtual bool SetSuspended(bool suspended) { (void)suspended; return true; }
     /// Total length in seconds if known (else < 0).
     virtual double DurationSeconds() const { return -1.0; }
 };

@@ -41,7 +41,8 @@ GameAudio::Get().SetMusicMode(MusicMode::Buy);   // 3 s fade, then the next mode
 GameAudio::Get().SetNeighbourhood(NeighbourhoodKind::MagicTown);  // Buy/Build/Nhood -> the pack's own score
 GameAudio::Get().SetVolumes(sfx, music, voice);  // options sliders 0..1
 GameAudio::Get().LeaveLot();                     // before destroying a lot's VM (stops radios, TVs, loops)
-GameAudio::Get().SetSuspended(true);             // HOME menu / sleep
+GameAudio::Get().SetSuspended(true);             // HOME menu / sleep; the 3DS pauses mixing and releases streamed-file handles
+GameAudio::Get().SetSuspended(false);            // reopen those streams at their previous positions before mixing resumes
 GameAudio::Get().PlayFile(cache + "/intro.wav"); // ADDED(sims): one-shot PCM WAV (preloaded, music group): the EA intro
 GameAudio::Get().StopFile();                     //   ... stopped when the intro is skipped / ends (FrontEnd State::Intro)
 GameAudio::Get().OutputLatencyMs();              //   queued output (3DS ~110 ms, host 0): the intro holds its video by it

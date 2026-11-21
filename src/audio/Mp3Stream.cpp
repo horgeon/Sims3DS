@@ -27,6 +27,7 @@ std::unique_ptr<Mp3Stream> Mp3Stream::Open(const std::string& path) {
     if (!f) return nullptr;
     std::unique_ptr<Mp3Stream> s(new Mp3Stream());
     s->_F = f;
+    s->_Path = path;
     std::fseek(f, 0, SEEK_END);
     s->_FileSize = std::ftell(f);
     std::fseek(f, 0, SEEK_SET);
@@ -39,8 +40,16 @@ std::unique_ptr<Mp3Stream> Mp3Stream::Open(const std::string& path) {
 }
 
 bool Mp3Stream::Rewind() {
-    if (!_F) return false;
-    std::fseek(_F, 0, SEEK_SET);
+    if (!_F) {
+        _F = std::fopen(_Path.c_str(), "rb");
+        if (!_F) return false;
+    }
+    if (std::fseek(_F, 0, SEEK_SET) != 0) {
+        std::fclose(_F);
+        _F = nullptr;
+        return false;
+    }
+    _FileOffset = 0;
     _BufPos = _BufLen = 0;
     _Eof = false;
     _PcmFrames = _PcmPos = 0;
@@ -48,7 +57,29 @@ bool Mp3Stream::Rewind() {
     return true;
 }
 
+bool Mp3Stream::SetSuspended(bool suspended) {
+    if (suspended) {
+        if (!_F) return true;
+        long offset = std::ftell(_F);
+        if (offset < 0) return false;
+        _FileOffset = offset;
+        std::fclose(_F);
+        _F = nullptr;
+        return true;
+    }
+    if (_F) return true;
+    _F = std::fopen(_Path.c_str(), "rb");
+    if (!_F) return false;
+    if (std::fseek(_F, _FileOffset, SEEK_SET) != 0) {
+        std::fclose(_F);
+        _F = nullptr;
+        return false;
+    }
+    return true;
+}
+
 bool Mp3Stream::Fill() {
+    if (!_F) return false;
     if (_BufPos > 0) {
         std::memmove(_Buf.data(), _Buf.data() + _BufPos, _BufLen - _BufPos);
         _BufLen -= _BufPos;

@@ -40,6 +40,8 @@ public:
     void SetVolumePan(int voice, float volume, float pan);
     void SetPaused(int voice, bool paused);
     void SetLooping(int voice, bool loop);
+    /// Release/reopen files held by active streams. The caller must stop concurrent Mix() calls first.
+    bool SetSuspended(bool suspended);
     /// Seconds played so far (source time), -1 if the handle is dead.
     double Position(int voice) const;
 

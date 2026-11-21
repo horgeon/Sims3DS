@@ -25,6 +25,8 @@ SD time = estimate for a 3DS SD card through stdio (4 MB/s, 1 ms per seek, 5 ms 
 What changed (all TS1(sims)-marked):
 - `files/FilePool`: at most 6 archive handles (LRU, reopen on demand, 32 KB buffers), I/O counters, `ReadWholeFile` with
   `strerror` messages and a retry after releasing handles; FAR1 manifests read in one block; `FAR1Archive::DropManifest`.
+  On the 3DS, APT suspend closes every pooled handle; readers reopen by path on demand, and streamed audio files reopen
+  at their previous positions when the app resumes.
 - `IffFile::ReadFromFile` (rsmp-driven): reads the file header + resource map, then only the chunks needed; sprites,
   bitmaps, strings, catalogue text, pie labels, draw groups, sounds (`SPR2 SPR# BMP_ STR# CTSS TTAs DGRP FWAV TPRP
   THMB`, ~95 % of an object file) stay on disk until first used (one seek + read each). Used for object files,

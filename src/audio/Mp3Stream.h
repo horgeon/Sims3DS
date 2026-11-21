@@ -25,6 +25,7 @@ public:
     int Rate() const override { return _Rate; }
     int Read(int16_t* out, int maxFrames) override;
     bool Rewind() override;
+    bool SetSuspended(bool suspended) override;
     double DurationSeconds() const override { return _Duration; }
 
     /// Decodes a whole file into memory (host tools / tests only).
@@ -37,6 +38,8 @@ private:
     struct Impl;
     std::unique_ptr<Impl> _I;
     FILE* _F = nullptr;
+    std::string _Path;
+    long _FileOffset = 0;
     int _Channels = 2, _Rate = 44100;
     long _FileSize = 0;
     double _Duration = -1;
