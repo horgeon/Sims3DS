@@ -49,6 +49,7 @@ AccessControlInfo:
   SystemModeExt                 : 124MB
   CpuSpeed                      : 804MHz
   EnableL2Cache                 : true
+  CanAccessCore2                : true
   HandleTableSize               : 0x200
   SystemCallAccess:
     ArbitrateAddress: 34
